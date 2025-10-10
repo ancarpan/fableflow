@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FableFlow - Ebook Manager</title>
+    
+    <!-- Tailwind CSS CDN for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- HTMX for dynamic interactions -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    
+    <!-- Alpine.js for reactive components -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="bg-gray-50" x-data="fableFlowApp()" x-init="init()">
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <h1 class="text-2xl font-bold text-gray-900 cursor-pointer" @click="goHome()">📚 FableFlow</h1>
+                </div>
+                
+                <!-- Hamburger Menu -->
+                <div class="relative" x-data="{ open: false }">
+                    <button @click="open = !open" class="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                    </button>
+                    
+                    <!-- Dropdown Menu -->
+                    <div x-show="open" @click.away="open = false" 
+                         x-transition:enter="transition ease-out duration-100"
+                         x-transition:enter-start="transform opacity-0 scale-95"
+                         x-transition:enter-end="transform opacity-100 scale-100"
+                         x-transition:leave="transition ease-in duration-75"
+                         x-transition:leave-start="transform opacity-100 scale-100"
+                         x-transition:leave-end="transform opacity-0 scale-95"
+                         class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
+                        <button @click="scanLibrary(); open = false" 
+                                class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            🔍 Scan Library
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation Breadcrumb -->
+    <nav class="bg-gray-100 border-b" x-show="breadcrumb.length > 0">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center space-x-2 py-3">
+                <button @click="goHome()" class="text-blue-600 hover:text-blue-800">Home</button>
+                <template x-for="(item, index) in breadcrumb" :key="index">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-gray-400">›</span>
+                        <button @click="navigateToBreadcrumb(index + 1)" 
+                                class="text-blue-600 hover:text-blue-800"
+                                x-text="item.name"></button>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        
+        <!-- Home Page -->
+        <div x-show="currentView === 'home'" class="space-y-6">
+            <!-- Search Section -->
+            <div class="bg-white shadow rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4">🔍 Search Books</h2>
+                <div class="flex gap-4">
+                    <input type="text" 
+                           x-model="searchQuery"
+                           @keyup.enter="performSearch()"
+                           placeholder="Search by title or author..."
+                           class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <button @click="performSearch()" 
+                            class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        Search
+                    </button>
+                </div>
+            </div>
+
+            <!-- Browse by Author -->
+            <div class="bg-white shadow rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4">👤 Browse by Author</h2>
+                <p class="text-gray-600 mb-4">Browse books by author name</p>
+                <button @click="browseAuthors()" 
+                        class="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500">
+                    Browse Authors
+                </button>
+            </div>
+
+            <!-- Browse by Title -->
+            <div class="bg-white shadow rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4">📖 Browse by Title</h2>
+                <p class="text-gray-600 mb-4">Browse books by title</p>
+                <button @click="browseTitles()" 
+                        class="px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    Browse Titles
+                </button>
+            </div>
+        </div>
+
+        <!-- Search Results -->
+        <div x-show="currentView === 'search'" class="space-y-6">
+            <div class="bg-white shadow rounded-lg p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-semibold text-gray-900">Search Results</h2>
+                    <button @click="goHome()" class="text-blue-600 hover:text-blue-800">← Back to Home</button>
+                </div>
+                <div class="space-y-3">
+                    <template x-for="book in searchResults" :key="book.id">
+                        <div class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+                            <h3 class="font-semibold text-gray-900" x-text="book.title"></h3>
+                            <p class="text-sm text-gray-600" x-text="'by ' + book.author"></p>
+                            <div class="text-xs text-gray-500 mt-2">
+                                <span class="font-medium" x-text="book.format.toUpperCase()"></span> • 
+                                <span x-text="formatFileSize(book.file_size)"></span> • 
+                                <span x-text="formatDate(book.added_at)"></span>
+                            </div>
+                            <div class="mt-3">
+                                <a :href="'/api/download/' + book.id" 
+                                   class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    Download
+                                </a>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- Author Letters -->
+        <div x-show="currentView === 'authors'" class="space-y-6">
+            <div class="bg-white shadow rounded-lg p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-semibold text-gray-900">Browse by Author</h2>
+                    <button @click="goHome()" class="text-blue-600 hover:text-blue-800">← Back to Home</button>
+                </div>
+                <div class="grid grid-cols-6 md:grid-cols-12 gap-2">
+                    <template x-for="letter in authorLetters" :key="letter">
+                        <button @click="browseAuthorsByLetter(letter)" 
+                                class="p-3 text-center border border-gray-300 rounded-md hover:bg-blue-50 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                x-text="letter"></button>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- Authors by Letter -->
+        <div x-show="currentView === 'authors-letter'" class="space-y-6">
+            <div class="bg-white shadow rounded-lg p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-semibold text-gray-900" x-text="'Authors starting with "' + currentLetter + '"'"></h2>
+                    <button @click="browseAuthors()" class="text-blue-600 hover:text-blue-800">← Back to Authors</button>
+                </div>
+                <div class="space-y-2">
+                    <template x-for="author in authorsByLetter" :key="author">
+                        <button @click="browseBooksByAuthor(author)" 
+                                class="block w-full text-left p-3 border border-gray-200 rounded-md hover:bg-blue-50 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                x-text="author"></button>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- Books by Author -->
+        <div x-show="currentView === 'books-by-author'" class="space-y-6">
+            <div class="bg-white shadow rounded-lg p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-semibold text-gray-900" x-text="'Books by ' + currentAuthor"></h2>
+                    <button @click="browseAuthorsByLetter(currentAuthor.charAt(0))" class="text-blue-600 hover:text-blue-800">← Back to Authors</button>
+                </div>
+                <div class="space-y-3">
+                    <template x-for="book in booksByAuthor" :key="book.id">
+                        <div class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+                            <h3 class="font-semibold text-gray-900" x-text="book.title"></h3>
+                            <div class="text-xs text-gray-500 mt-2">
+                                <span class="font-medium" x-text="book.format.toUpperCase()"></span> • 
+                                <span x-text="formatFileSize(book.file_size)"></span> • 
+                                <span x-text="formatDate(book.added_at)"></span>
+                            </div>
+                            <div class="mt-3">
+                                <a :href="'/api/download/' + book.id" 
+                                   class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    Download
+                                </a>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- Title Letters -->
+        <div x-show="currentView === 'titles'" class="space-y-6">
+            <div class="bg-white shadow rounded-lg p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-semibold text-gray-900">Browse by Title</h2>
+                    <button @click="goHome()" class="text-blue-600 hover:text-blue-800">← Back to Home</button>
+                </div>
+                <div class="grid grid-cols-6 md:grid-cols-12 gap-2">
+                    <template x-for="letter in titleLetters" :key="letter">
+                        <button @click="browseTitlesByLetter(letter)" 
+                                class="p-3 text-center border border-gray-300 rounded-md hover:bg-purple-50 hover:border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                x-text="letter"></button>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- Titles by Letter -->
+        <div x-show="currentView === 'titles-letter'" class="space-y-6">
+            <div class="bg-white shadow rounded-lg p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-semibold text-gray-900" x-text="'Titles starting with "' + currentLetter + '"'"></h2>
+                    <button @click="browseTitles()" class="text-blue-600 hover:text-blue-800">← Back to Titles</button>
+                </div>
+                <div class="space-y-2">
+                    <template x-for="title in titlesByLetter" :key="title">
+                        <button @click="browseBooksByTitle(title)" 
+                                class="block w-full text-left p-3 border border-gray-200 rounded-md hover:bg-purple-50 hover:border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                x-text="title"></button>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- Books by Title -->
+        <div x-show="currentView === 'books-by-title'" class="space-y-6">
+            <div class="bg-white shadow rounded-lg p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-semibold text-gray-900" x-text="'Books titled "' + currentTitle + '"'"></h2>
+                    <button @click="browseTitlesByLetter(currentTitle.charAt(0))" class="text-blue-600 hover:text-blue-800">← Back to Titles</button>
+                </div>
+                <div class="space-y-3">
+                    <template x-for="book in booksByTitle" :key="book.id">
+                        <div class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+                            <h3 class="font-semibold text-gray-900" x-text="book.title"></h3>
+                            <p class="text-sm text-gray-600" x-text="'by ' + book.author"></p>
+                            <div class="text-xs text-gray-500 mt-2">
+                                <span class="font-medium" x-text="book.format.toUpperCase()"></span> • 
+                                <span x-text="formatFileSize(book.file_size)"></span> • 
+                                <span x-text="formatDate(book.added_at)"></span>
+                            </div>
+                            <div class="mt-3">
+                                <a :href="'/api/download/' + book.id" 
+                                   class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    Download
+                                </a>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div x-show="loading" class="text-center py-8">
+            <div class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-500">
+                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Loading...
+            </div>
+        </div>
+    </main>
+
+    <!-- Toast Notifications -->
+    <div x-show="toast.show" 
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="transform translate-y-2 opacity-0"
+         x-transition:enter-end="transform translate-y-0 opacity-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="transform translate-y-0 opacity-100"
+         x-transition:leave-end="transform translate-y-2 opacity-0"
+         class="fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50"
+         x-text="toast.message">
+    </div>
+
+    <!-- Custom JavaScript -->
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
