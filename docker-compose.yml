@@ -1,0 +1,21 @@
+# docker-compose.yml
+services:
+  backend:
+    image: fableflow:latest
+    ports: ["8080:8080"]
+    environment:
+      - FF_SERVESTATIC=false
+    volumes:
+      - ./ebooks:/ebooks
+      - ./database:/database
+    command: ["/app/fableflow-backend", "-c", "/app/config.yaml"]
+
+  frontend:
+    image: fableflow:latest
+    ports: ["3000:3000"]
+    environment:
+      - CONTENT_DIR=/web
+      - BACKEND_ADDR=http://backend:8080
+    entrypoint: ["/app/fableflow-frontend"]
+#    command: ["/usr/bin/python3", "-m", "http.server", "3000", "--directory", "/web"]
+    depends_on: [backend]

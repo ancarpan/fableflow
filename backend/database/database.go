@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -54,16 +55,37 @@ func (dm *Manager) initDatabase() error {
 		file_path TEXT UNIQUE NOT NULL,
 		file_size INTEGER,
 		format TEXT,
-		added_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		isbn TEXT,
+		publisher TEXT,
+		added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);`
 
 	_, err := dm.db.Exec(query)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Add publisher column if it doesn't exist (migration)
+	_, err = dm.db.Exec(`ALTER TABLE books ADD COLUMN publisher TEXT;`)
+	if err != nil {
+		// Column might already exist, ignore the error
+		// In a production app, you'd check if the column exists first
+	}
+
+	// Add updated_at column if it doesn't exist (migration)
+	_, err = dm.db.Exec(`ALTER TABLE books ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP;`)
+	if err != nil {
+		// Column might already exist, ignore the error
+		// In a production app, you'd check if the column exists first
+	}
+
+	return nil
 }
 
 // GetAllBooks returns all books from the database
 func (dm *Manager) GetAllBooks() ([]models.Book, error) {
-	query := "SELECT id, title, author, file_path, file_size, format, added_at FROM books ORDER BY title"
+	query := "SELECT id, title, author, file_path, file_size, format, isbn, publisher, added_at, updated_at FROM books ORDER BY title"
 	rows, err := dm.db.Query(query)
 	if err != nil {
 		return nil, err
@@ -73,7 +95,7 @@ func (dm *Manager) GetAllBooks() ([]models.Book, error) {
 	var books []models.Book
 	for rows.Next() {
 		var book models.Book
-		err := rows.Scan(&book.ID, &book.Title, &book.Author, &book.FilePath, &book.FileSize, &book.Format, &book.AddedAt)
+		err := rows.Scan(&book.ID, &book.Title, &book.Author, &book.FilePath, &book.FileSize, &book.Format, &book.ISBN, &book.Publisher, &book.AddedAt, &book.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -112,9 +134,9 @@ func (dm *Manager) SearchBooks(query string) ([]models.Book, error) {
 
 // AddBook adds a new book to the database
 func (dm *Manager) AddBook(book models.BookRequest) error {
-	query := `INSERT INTO books (title, author, file_path, file_size, format, added_at) 
-			  VALUES (?, ?, ?, ?, ?, ?)`
-	_, err := dm.db.Exec(query, book.Title, book.Author, book.FilePath, book.FileSize, book.Format, time.Now())
+	query := `INSERT INTO books (title, author, file_path, file_size, format, isbn, publisher, added_at) 
+			  VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+	_, err := dm.db.Exec(query, book.Title, book.Author, book.FilePath, book.FileSize, book.Format, book.ISBN, book.Publisher, time.Now())
 	return err
 }
 
@@ -136,10 +158,7 @@ func (dm *Manager) BookExists(filePath string) (bool, error) {
 func (dm *Manager) ScanDirectory(rootPath string) error {
 	supportedFormats := map[string]bool{
 		".epub": true,
-		".pdf":  true,
-		".mobi": true,
-		".azw":  true,
-		".azw3": true,
+		// Only scan for EPUB files to avoid importing converted files
 	}
 
 	return filepath.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
@@ -168,13 +187,16 @@ func (dm *Manager) ScanDirectory(rootPath string) error {
 
 		title := bookMetadata.Title
 		author := bookMetadata.Author
+		isbn := bookMetadata.ISBN
 
 		book := models.BookRequest{
-			Title:    title,
-			Author:   author,
-			FilePath: path,
-			FileSize: info.Size(),
-			Format:   strings.TrimPrefix(ext, "."),
+			Title:     title,
+			Author:    author,
+			FilePath:  path,
+			FileSize:  info.Size(),
+			Format:    strings.TrimPrefix(ext, "."),
+			ISBN:      isbn,
+			Publisher: bookMetadata.Publisher,
 		}
 
 		err = dm.AddBook(book)
@@ -192,10 +214,7 @@ func (dm *Manager) ScanDirectory(rootPath string) error {
 func (dm *Manager) RescanDirectory(rootPath string) (int, int, error) {
 	supportedFormats := map[string]bool{
 		".epub": true,
-		".pdf":  true,
-		".mobi": true,
-		".azw":  true,
-		".azw3": true,
+		// Only scan for EPUB files to avoid importing converted files
 	}
 
 	// Get all current books from database
@@ -244,13 +263,16 @@ func (dm *Manager) RescanDirectory(rootPath string) (int, int, error) {
 
 		title := bookMetadata.Title
 		author := bookMetadata.Author
+		isbn := bookMetadata.ISBN
 
 		book := models.BookRequest{
-			Title:    title,
-			Author:   author,
-			FilePath: path,
-			FileSize: info.Size(),
-			Format:   strings.TrimPrefix(ext, "."),
+			Title:     title,
+			Author:    author,
+			FilePath:  path,
+			FileSize:  info.Size(),
+			Format:    strings.TrimPrefix(ext, "."),
+			ISBN:      isbn,
+			Publisher: bookMetadata.Publisher,
 		}
 
 		err = dm.AddBook(book)
@@ -332,7 +354,7 @@ func (dm *Manager) GetAuthorsByLetter(letter string) ([]string, error) {
 
 // GetBooksByAuthor returns all books by a specific author
 func (dm *Manager) GetBooksByAuthor(author string) ([]models.Book, error) {
-	query := "SELECT id, title, author, file_path, file_size, format, added_at FROM books WHERE author = ? ORDER BY title"
+	query := "SELECT id, title, author, file_path, file_size, format, isbn, publisher, added_at, updated_at FROM books WHERE author = ? ORDER BY title"
 	rows, err := dm.db.Query(query, author)
 	if err != nil {
 		return nil, err
@@ -342,7 +364,7 @@ func (dm *Manager) GetBooksByAuthor(author string) ([]models.Book, error) {
 	var books []models.Book
 	for rows.Next() {
 		var book models.Book
-		err := rows.Scan(&book.ID, &book.Title, &book.Author, &book.FilePath, &book.FileSize, &book.Format, &book.AddedAt)
+		err := rows.Scan(&book.ID, &book.Title, &book.Author, &book.FilePath, &book.FileSize, &book.Format, &book.ISBN, &book.Publisher, &book.AddedAt, &book.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -400,7 +422,7 @@ func (dm *Manager) GetTitlesByLetter(letter string) ([]string, error) {
 
 // GetBooksByTitle returns all books with a specific title
 func (dm *Manager) GetBooksByTitle(title string) ([]models.Book, error) {
-	query := "SELECT id, title, author, file_path, file_size, format, added_at FROM books WHERE title = ? ORDER BY author"
+	query := "SELECT id, title, author, file_path, file_size, format, isbn, publisher, added_at, updated_at FROM books WHERE title = ? ORDER BY author"
 	rows, err := dm.db.Query(query, title)
 	if err != nil {
 		return nil, err
@@ -410,7 +432,51 @@ func (dm *Manager) GetBooksByTitle(title string) ([]models.Book, error) {
 	var books []models.Book
 	for rows.Next() {
 		var book models.Book
-		err := rows.Scan(&book.ID, &book.Title, &book.Author, &book.FilePath, &book.FileSize, &book.Format, &book.AddedAt)
+		err := rows.Scan(&book.ID, &book.Title, &book.Author, &book.FilePath, &book.FileSize, &book.Format, &book.ISBN, &book.Publisher, &book.AddedAt, &book.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		books = append(books, book)
+	}
+
+	return books, nil
+}
+
+// GetRecentBooks returns the most recently added books
+func (dm *Manager) GetRecentBooks(limit int) ([]models.Book, error) {
+	query := "SELECT id, title, author, file_path, file_size, format, isbn, publisher, added_at, updated_at FROM books ORDER BY added_at DESC LIMIT ?"
+	rows, err := dm.db.Query(query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var books []models.Book
+	for rows.Next() {
+		var book models.Book
+		err := rows.Scan(&book.ID, &book.Title, &book.Author, &book.FilePath, &book.FileSize, &book.Format, &book.ISBN, &book.Publisher, &book.AddedAt, &book.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		books = append(books, book)
+	}
+
+	return books, nil
+}
+
+// GetRandomBooks returns a random selection of books
+func (dm *Manager) GetRandomBooks(limit int) ([]models.Book, error) {
+	query := "SELECT id, title, author, file_path, file_size, format, isbn, publisher, added_at, updated_at FROM books ORDER BY RANDOM() LIMIT ?"
+	rows, err := dm.db.Query(query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var books []models.Book
+	for rows.Next() {
+		var book models.Book
+		err := rows.Scan(&book.ID, &book.Title, &book.Author, &book.FilePath, &book.FileSize, &book.Format, &book.ISBN, &book.Publisher, &book.AddedAt, &book.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -422,14 +488,46 @@ func (dm *Manager) GetBooksByTitle(title string) ([]models.Book, error) {
 
 // GetBookByID returns a book by its ID
 func (dm *Manager) GetBookByID(id int) (models.Book, error) {
-	query := "SELECT id, title, author, file_path, file_size, format, added_at FROM books WHERE id = ?"
+	query := "SELECT id, title, author, file_path, file_size, format, isbn, publisher, added_at, updated_at FROM books WHERE id = ?"
 	row := dm.db.QueryRow(query, id)
 
 	var book models.Book
-	err := row.Scan(&book.ID, &book.Title, &book.Author, &book.FilePath, &book.FileSize, &book.Format, &book.AddedAt)
+	err := row.Scan(&book.ID, &book.Title, &book.Author, &book.FilePath, &book.FileSize, &book.Format, &book.ISBN, &book.Publisher, &book.AddedAt, &book.UpdatedAt)
 	if err != nil {
 		return models.Book{}, err
 	}
 
 	return book, nil
+}
+
+// UpdateBook updates book metadata in the database
+func (m *Manager) UpdateBook(id int, title, author, isbn, publisher string) error {
+	query := `
+		UPDATE books 
+		SET title = ?, author = ?, isbn = ?, publisher = ?, updated_at = CURRENT_TIMESTAMP 
+		WHERE id = ?
+	`
+
+	_, err := m.db.Exec(query, title, author, isbn, publisher, id)
+	if err != nil {
+		return fmt.Errorf("failed to update book: %v", err)
+	}
+
+	return nil
+}
+
+// UpdateBookWithPath updates book metadata and file path in the database
+func (m *Manager) UpdateBookWithPath(id int, title, author, isbn, publisher, filePath string) error {
+	query := `
+		UPDATE books 
+		SET title = ?, author = ?, isbn = ?, publisher = ?, file_path = ?, updated_at = CURRENT_TIMESTAMP 
+		WHERE id = ?
+	`
+
+	_, err := m.db.Exec(query, title, author, isbn, publisher, filePath, id)
+	if err != nil {
+		return fmt.Errorf("failed to update book: %v", err)
+	}
+
+	return nil
 }

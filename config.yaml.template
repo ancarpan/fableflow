@@ -1,0 +1,25 @@
+# Ebook Manager Configuration
+
+# Server settings
+server:
+  host: ${FF_HOST}  # IP to bind to (use "0.0.0.0" to allow external connections)
+  port: ${FF_PORT}  # Port to listen on
+  serve_static_assets: ${FF_SERVESTATIC}  # Whether to serve static files (frontend) from backend
+
+# Library settings
+library:
+  scan_directory: ${FF_SCAN_DIR}  # Default directory to scan for ebooks
+  auto_scan: true                            # Automatically scan on startup (true/false)
+  import_directory: ${FF_IMPORT_DIR}  # Directory to scan for books to import
+  quarantine_directory: ${FF_QUARANTINE_DIR}  # Directory for files with missing metadata
+
+# Temporary directory settings
+tmp_dir: ${FF_TMP_DIR}  # Directory for temporary files (conversions, downloads, etc.)
+
+# Logging settings
+logdir: ${FF_LOG_DIR}  # Directory for import session logs
+max_import_logs: 10  # Maximum number of import session logs to keep
+
+# Database settings (optional - uses defaults if not specified)
+database:
+  path: ${FF_DATABASE_PATH}  # Path to SQLite database file

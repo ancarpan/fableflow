@@ -12,14 +12,20 @@ import (
 // Config represents the application configuration
 type Config struct {
 	Server struct {
-		Host string `yaml:"host"`
-		Port string `yaml:"port"`
+		Host              string `yaml:"host"`
+		Port              string `yaml:"port"`
+		ServeStaticAssets bool   `yaml:"serve_static_assets"`
 	} `yaml:"server"`
 	Library struct {
-		ScanDirectory string `yaml:"scan_directory"`
-		AutoScan      bool   `yaml:"auto_scan"`
+		ScanDirectory       string `yaml:"scan_directory"`
+		AutoScan            bool   `yaml:"auto_scan"`
+		ImportDirectory     string `yaml:"import_directory"`
+		QuarantineDirectory string `yaml:"quarantine_directory"`
 	} `yaml:"library"`
-	Database struct {
+	TmpDir        string `yaml:"tmp_dir"`
+	LogDir        string `yaml:"logdir"`
+	MaxImportLogs int    `yaml:"max_import_logs"`
+	Database      struct {
 		Path string `yaml:"path"`
 	} `yaml:"database"`
 }
@@ -30,8 +36,14 @@ func LoadConfig(filename string) (*Config, error) {
 	config := &Config{}
 	config.Server.Host = "localhost"
 	config.Server.Port = "8080"
+	config.Server.ServeStaticAssets = false
 	config.Library.ScanDirectory = "/home/user/Books"
 	config.Library.AutoScan = false
+	config.Library.ImportDirectory = "/home/user/Import"
+	config.Library.QuarantineDirectory = "/home/user/Quarantine"
+	config.TmpDir = "/tmp/fableflow"
+	config.LogDir = "/tmp/fableflow/logs"
+	config.MaxImportLogs = 10
 	config.Database.Path = "./ebooks.db"
 
 	// Check if config file exists
