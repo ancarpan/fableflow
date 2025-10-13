@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FableFlow Reader</title>
+    <script src="/static/jszip.min.js"></script>
+    <script src="/static/epub.min.js"></script>
+    <style>
+        .epub-container {
+            min-width: 320px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .epub-container .epub-view > iframe {
+            background: white;
+            box-shadow: 0 0 4px #ccc;
+        }
+        
+        #viewer {
+            height: 100vh;
+            width: 100%;
+        }
+        .navigation {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+        }
+        .navigation button {
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .navigation button:hover {
+            background: #0056b3;
+        }
+        .header {
+            background: white;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 1rem;
+        }
+        .header-content {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .back-btn {
+            background: none;
+            border: none;
+            color: #6b7280;
+            cursor: pointer;
+            padding: 0.5rem;
+        }
+        .back-btn:hover {
+            color: #111827;
+        }
+        .title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #111827;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="header-content">
+            <button onclick="goBack()" class="back-btn">
+                ← Back
+            </button>
+            <h1 id="book-title" class="title">Loading...</h1>
+        </div>
+    </div>
+
+    <!-- Main Reader -->
+    <div id="viewer"></div>
+    
+    <!-- Navigation -->
+    <div class="navigation">
+        <button id="prev">« previous</button>
+        <button id="next">next »</button>
+    </div>
+
+    <script>
+        // Get book ID from URL
+        const bookId = window.location.pathname.split('/').pop();
+        
+        // Get the EPUB file URL
+        const epubUrl = `/api/download/${bookId}.epub`;
+        
+        // Load the EPUB
+        var book = ePub(epubUrl);
+        var rendition = book.renderTo("viewer", {
+            flow: "scrolled-doc"
+        });
+
+        rendition.display();
+
+        var next = document.getElementById("next");
+        next.addEventListener("click", function(e){
+            rendition.next();
+            e.preventDefault();
+        }, false);
+
+        var prev = document.getElementById("prev");
+        prev.addEventListener("click", function(e){
+            rendition.prev();
+            e.preventDefault();
+        }, false);
+
+        rendition.on("relocated", function(location){
+            console.log(location);
+        });
+
+        rendition.on("rendered", function(section){
+            var nextSection = section.next();
+            var prevSection = section.prev();
+
+            if(nextSection) {
+                nextNav = book.navigation.get(nextSection.href);
+
+                if(nextNav) {
+                    nextLabel = nextNav.label;
+                } else {
+                    nextLabel = "next";
+                }
+
+                next.textContent = nextLabel + " »";
+            } else {
+                next.textContent = "";
+            }
+
+            if(prevSection) {
+                prevNav = book.navigation.get(prevSection.href);
+
+                if(prevNav) {
+                    prevLabel = prevNav.label;
+                } else {
+                    prevLabel = "previous";
+                }
+
+                prev.textContent = "« " + prevLabel;
+            } else {
+                prev.textContent = "";
+            }
+
+        });
+
+    </script>
+</body>
+</html>

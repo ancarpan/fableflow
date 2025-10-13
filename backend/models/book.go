@@ -4,22 +4,27 @@ import "time"
 
 // Book represents an ebook in our collection
 type Book struct {
-	ID       int       `json:"id"`
-	Title    string    `json:"title"`
-	Author   string    `json:"author"`
-	FilePath string    `json:"file_path"`
-	FileSize int64     `json:"file_size"`
-	Format   string    `json:"format"`
-	AddedAt  time.Time `json:"added_at"`
+	ID        int       `json:"id"`
+	Title     string    `json:"title"`
+	Author    string    `json:"author"`
+	FilePath  string    `json:"file_path"`
+	FileSize  int64     `json:"file_size"`
+	Format    string    `json:"format"`
+	ISBN      string    `json:"isbn"`
+	Publisher string    `json:"publisher"`
+	AddedAt   time.Time `json:"added_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // BookRequest represents a request to add/update a book
 type BookRequest struct {
-	Title    string `json:"title"`
-	Author   string `json:"author"`
-	FilePath string `json:"file_path"`
-	FileSize int64  `json:"file_size"`
-	Format   string `json:"format"`
+	Title     string `json:"title"`
+	Author    string `json:"author"`
+	FilePath  string `json:"file_path"`
+	FileSize  int64  `json:"file_size"`
+	Format    string `json:"format"`
+	ISBN      string `json:"isbn"`
+	Publisher string `json:"publisher"`
 }
 
 // ScanRequest represents a request to scan a directory

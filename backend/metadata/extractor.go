@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -123,8 +124,14 @@ func (e *Extractor) extractEPUBMetadata(filePath string) (*BookMetadata, error) 
 	if len(opf.Metadata.Description) > 0 {
 		metadata.Description = strings.TrimSpace(opf.Metadata.Description[0])
 	}
-	if len(opf.Metadata.Identifier) > 0 {
-		metadata.ISBN = strings.TrimSpace(opf.Metadata.Identifier[0])
+	// Look for ISBN in identifiers (skip UUIDs and other non-ISBN identifiers)
+	for _, identifier := range opf.Metadata.Identifier {
+		cleanID := strings.TrimSpace(identifier)
+		// Check if it looks like an ISBN (contains numbers and hyphens, or is 10/13 digits)
+		if isISBN(cleanID) {
+			metadata.ISBN = cleanID
+			break
+		}
 	}
 	if len(opf.Metadata.Date) > 0 {
 		metadata.Date = strings.TrimSpace(opf.Metadata.Date[0])
@@ -188,4 +195,28 @@ func (e *Extractor) ExtractFromFilename(filePath string) *BookMetadata {
 	}
 
 	return metadata
+}
+
+// isISBN checks if a string looks like an ISBN number
+func isISBN(identifier string) bool {
+	// Remove common prefixes and clean the string
+	clean := strings.ToLower(identifier)
+	clean = strings.TrimPrefix(clean, "isbn:")
+	clean = strings.TrimPrefix(clean, "urn:isbn:")
+	clean = strings.TrimSpace(clean)
+
+	// Remove hyphens and spaces
+	clean = strings.ReplaceAll(clean, "-", "")
+	clean = strings.ReplaceAll(clean, " ", "")
+
+	// Check if it's a 10 or 13 digit number
+	if len(clean) == 10 || len(clean) == 13 {
+		// Check if all characters are digits
+		matched, _ := regexp.MatchString(`^\d+$`, clean)
+		return matched
+	}
+
+	// Check if it contains ISBN-like pattern with hyphens (e.g., 978-1-234-56789-0)
+	isbnPattern := regexp.MustCompile(`^\d{3}-\d{1}-\d{3}-\d{5}-\d{1}$|^\d{1}-\d{3}-\d{5}-\d{1}$`)
+	return isbnPattern.MatchString(identifier)
 }
