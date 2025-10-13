@@ -136,6 +136,7 @@ func main() {
 	http.HandleFunc("/api/import/logs/list", corsMiddleware(importHandler.ListImportLogs))
 	http.HandleFunc("/api/import/logs/", corsMiddleware(importHandler.GetImportLog))
 	http.HandleFunc("/api/import/logs", corsMiddleware(importHandler.GetImportLogs))
+	http.HandleFunc("/api/library/stats", corsMiddleware(booksHandler.GetLibraryStats))
 
 	// Conditionally serve static assets
 	if cfg.Server.ServeStaticAssets {
