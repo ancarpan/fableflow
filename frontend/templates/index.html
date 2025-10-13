@@ -101,10 +101,14 @@
                          x-transition:leave="transition ease-in duration-75"
                          x-transition:leave-start="transform opacity-100 scale-100"
                          x-transition:leave-end="transform opacity-0 scale-95"
-                         class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
+                         class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-600 z-50">
                         <button @click="showAdminPanel(); open = false" 
                                 class="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-700">
                             ⚙️ Admin
+                        </button>
+                        <button @click="showLibraryInfo(); open = false" 
+                                class="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-700">
+                            📊 Library Info
                         </button>
                         <button @click="showAbout(); open = false" 
                                 class="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-700">
@@ -257,7 +261,7 @@
                     <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Search Results</h2>
                     <button @click="goHome()" class="text-blue-600 hover:text-blue-800">← Back to Home</button>
                 </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:6 gap-6">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
                     <template x-for="book in searchResults" :key="book.id">
                         <div class="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
                             <!-- Book Cover Thumbnail -->
@@ -502,7 +506,7 @@
                     <h2 class="text-xl font-semibold text-gray-900 dark:text-white" x-text="'Books titled ' + currentTitle "></h2>
                     <button @click="browseTitlesByLetter(currentTitle.charAt(0))" class="text-blue-600 hover:text-blue-800">← Back to Titles</button>
                 </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:6 gap-6">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
                     <template x-for="book in booksByTitle" :key="book.id">
                         <div class="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
                             <!-- Book Cover Thumbnail -->
@@ -899,7 +903,7 @@
                 <!-- Book Import Section -->
                 <div class="mb-8">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📚 Book Import</h3>
-                    <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-4">
+                    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4">
                         <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">
                             Import books from the import directory. Files will be organized in Calibre-style structure: <code>Author/Title/Title - Author.epub</code>
                         </p>
@@ -1194,6 +1198,85 @@
                     <button @click="showAboutModal = false" 
                             class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
                         Close
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Library Info -->
+        <div x-show="currentView === 'library-info'" class="space-y-6">
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-semibold text-gray-900 dark:text-white">📊 Library Information</h2>
+                    <button @click="goHome()" class="text-blue-600 hover:text-blue-800">← Back to Home</button>
+                </div>
+                
+                <!-- Library Statistics -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <!-- Total Books -->
+                    <div class="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-lg text-center">
+                        <div class="text-3xl font-bold text-blue-600 dark:text-blue-400" x-text="libraryStats?.total_books || 0"></div>
+                        <div class="text-sm text-blue-600 dark:text-blue-400 mt-1">Total Books</div>
+                    </div>
+                    
+                    <!-- Quarantine Books -->
+                    <div class="bg-orange-50 dark:bg-orange-900/20 p-6 rounded-lg text-center">
+                        <div class="text-3xl font-bold text-orange-600 dark:text-orange-400" x-text="libraryStats?.quarantine_books || 0"></div>
+                        <div class="text-sm text-orange-600 dark:text-orange-400 mt-1">Quarantine Books</div>
+                    </div>
+                    
+                    <!-- Authors -->
+                    <div class="bg-green-50 dark:bg-green-900/20 p-6 rounded-lg text-center">
+                        <div class="text-3xl font-bold text-green-600 dark:text-green-400" x-text="libraryStats?.total_authors || 0"></div>
+                        <div class="text-sm text-green-600 dark:text-green-400 mt-1">Unique Authors</div>
+                    </div>
+                    
+                    <!-- Publishers -->
+                    <div class="bg-purple-50 dark:bg-purple-900/20 p-6 rounded-lg text-center">
+                        <div class="text-3xl font-bold text-purple-600 dark:text-purple-400" x-text="libraryStats?.total_publishers || 0"></div>
+                        <div class="text-sm text-purple-600 dark:text-purple-400 mt-1">Publishers</div>
+                    </div>
+                </div>
+                
+                <!-- Recent Activity -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📈 Recent Activity</h3>
+                    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <span class="text-sm text-gray-600 dark:text-gray-300">Last Import:</span>
+                                <span class="text-sm font-medium text-gray-900 dark:text-white" x-text="libraryStats?.last_import || 'Never'"></span>
+                            </div>
+                            <div>
+                                <span class="text-sm text-gray-600 dark:text-gray-300">Last Scan:</span>
+                                <span class="text-sm font-medium text-gray-900 dark:text-white" x-text="libraryStats?.last_scan || 'Never'"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Storage Information -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">💾 Storage Information</h3>
+                    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <span class="text-sm text-gray-600 dark:text-gray-300">Total Size:</span>
+                                <span class="text-sm font-medium text-gray-900 dark:text-white" x-text="libraryStats?.total_size || 'Unknown'"></span>
+                            </div>
+                            <div>
+                                <span class="text-sm text-gray-600 dark:text-gray-300">Average Book Size:</span>
+                                <span class="text-sm font-medium text-gray-900 dark:text-white" x-text="libraryStats?.avg_book_size || 'Unknown'"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Refresh Button -->
+                <div class="text-center">
+                    <button @click="loadLibraryStats()" 
+                            class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        🔄 Refresh Statistics
                     </button>
                 </div>
             </div>

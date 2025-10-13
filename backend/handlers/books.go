@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -984,4 +985,109 @@ func (h *BooksHandler) cleanupEmptyDirectories(dirPath string) error {
 
 	// Recursively check parent directory
 	return h.cleanupEmptyDirectories(parentDir)
+}
+
+// GetLibraryStats returns library statistics
+func (h *BooksHandler) GetLibraryStats(w http.ResponseWriter, r *http.Request) {
+	// Get total books count
+	totalBooks, err := h.db.GetTotalBooksCount()
+	if err != nil {
+		http.Error(w, "Failed to get total books count", http.StatusInternalServerError)
+		return
+	}
+
+	// Get quarantine books count
+	quarantineBooks, err := h.getQuarantineBooksCount()
+	if err != nil {
+		log.Printf("Error getting quarantine books count: %v", err)
+		http.Error(w, "Failed to get quarantine books count", http.StatusInternalServerError)
+		return
+	}
+
+	// Get total authors count
+	totalAuthors, err := h.db.GetTotalAuthorsCount()
+	if err != nil {
+		http.Error(w, "Failed to get total authors count", http.StatusInternalServerError)
+		return
+	}
+
+	// Get total publishers count
+	totalPublishers, err := h.db.GetTotalPublishersCount()
+	if err != nil {
+		http.Error(w, "Failed to get total publishers count", http.StatusInternalServerError)
+		return
+	}
+
+	// Get library size information
+	log.Printf("Calling GetLibrarySizeInfo...")
+	totalSize, avgSize, err := h.db.GetLibrarySizeInfo()
+	if err != nil {
+		log.Printf("Error getting library size info: %v", err)
+		http.Error(w, "Failed to get library size info", http.StatusInternalServerError)
+		return
+	}
+	log.Printf("GetLibrarySizeInfo successful: total=%d, avg=%d", totalSize, avgSize)
+
+	// Get last activity dates
+	lastImport, lastScan, err := h.db.GetLastActivityDates()
+	if err != nil {
+		http.Error(w, "Failed to get last activity dates", http.StatusInternalServerError)
+		return
+	}
+
+	stats := map[string]interface{}{
+		"total_books":      totalBooks,
+		"quarantine_books": quarantineBooks,
+		"total_authors":    totalAuthors,
+		"total_publishers": totalPublishers,
+		"total_size":       formatFileSize(totalSize),
+		"avg_book_size":    formatFileSize(avgSize),
+		"last_import":      lastImport,
+		"last_scan":        lastScan,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(stats)
+}
+
+// getQuarantineBooksCount returns the number of books in quarantine directory
+func (h *BooksHandler) getQuarantineBooksCount() (int, error) {
+	// Get quarantine directory from config
+	quarantineDir := h.config.Library.QuarantineDirectory
+	if quarantineDir == "" {
+		return 0, fmt.Errorf("quarantine directory not configured")
+	}
+
+	// Check if quarantine directory exists
+	if _, err := os.Stat(quarantineDir); os.IsNotExist(err) {
+		return 0, nil // Directory doesn't exist, so no quarantine books
+	}
+
+	// Count EPUB files in quarantine directory
+	count := 0
+	err := filepath.Walk(quarantineDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && strings.ToLower(filepath.Ext(path)) == ".epub" {
+			count++
+		}
+		return nil
+	})
+
+	return count, err
+}
+
+// formatFileSize formats file size in bytes to human readable format
+func formatFileSize(size int64) string {
+	const unit = 1024
+	if size < unit {
+		return fmt.Sprintf("%d B", size)
+	}
+	div, exp := int64(unit), 0
+	for n := size / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
 }

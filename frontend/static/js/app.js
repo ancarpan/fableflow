@@ -52,6 +52,9 @@ function fableFlowApp() {
         importLogs: [],
         selectedLog: null,
         
+        // Library statistics
+        libraryStats: null,
+        
         // Quarantine data
         quarantineBooks: [],
 
@@ -448,6 +451,16 @@ function fableFlowApp() {
             this.loadImportLogs();
         },
 
+        // Show library info page
+        showLibraryInfo() {
+            this.currentView = 'library-info';
+            this.breadcrumb = [
+                { name: 'Library Info', action: null }
+            ];
+            // Load library statistics
+            this.loadLibraryStats();
+        },
+
         // Show about popup
         showAbout() {
             this.showAboutModal = true;
@@ -672,6 +685,21 @@ function fableFlowApp() {
             } catch (error) {
                 console.error('Failed to load import logs:', error);
                 this.showToast('Failed to load import logs');
+            }
+        },
+
+        // Load library statistics
+        async loadLibraryStats() {
+            try {
+                const response = await fetch('/api/library/stats');
+                if (!response.ok) {
+                    throw new Error('Failed to load library statistics');
+                }
+                
+                this.libraryStats = await response.json();
+            } catch (error) {
+                console.error('Failed to load library statistics:', error);
+                this.showToast('Failed to load library statistics');
             }
         },
         

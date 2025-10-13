@@ -531,3 +531,83 @@ func (m *Manager) UpdateBookWithPath(id int, title, author, isbn, publisher, fil
 
 	return nil
 }
+
+// GetTotalBooksCount returns the total number of books in the library
+func (m *Manager) GetTotalBooksCount() (int, error) {
+	var count int
+	err := m.db.QueryRow("SELECT COUNT(*) FROM books").Scan(&count)
+	return count, err
+}
+
+// GetQuarantineBooksCount returns the number of books in quarantine
+func (m *Manager) GetQuarantineBooksCount() (int, error) {
+	// This method should be called from the BooksHandler since it needs access to config
+	// For now, return 0 as a placeholder - the actual implementation is in BooksHandler.GetQuarantineBooks
+	return 0, nil
+}
+
+// GetTotalAuthorsCount returns the number of unique authors
+func (m *Manager) GetTotalAuthorsCount() (int, error) {
+	var count int
+	err := m.db.QueryRow("SELECT COUNT(DISTINCT author) FROM books").Scan(&count)
+	return count, err
+}
+
+// GetTotalPublishersCount returns the number of unique publishers
+func (m *Manager) GetTotalPublishersCount() (int, error) {
+	var count int
+	err := m.db.QueryRow("SELECT COUNT(DISTINCT publisher) FROM books WHERE publisher != ''").Scan(&count)
+	return count, err
+}
+
+// GetLibrarySizeInfo returns total size and average book size
+func (m *Manager) GetLibrarySizeInfo() (int64, int64, error) {
+	var totalSize sql.NullInt64
+	var avgSize sql.NullFloat64
+	err := m.db.QueryRow("SELECT COALESCE(SUM(file_size), 0), COALESCE(AVG(file_size), 0) FROM books WHERE file_size IS NOT NULL").Scan(&totalSize, &avgSize)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	// Convert NullInt64 to int64, defaulting to 0 if NULL
+	total := int64(0)
+	avg := int64(0)
+	if totalSize.Valid {
+		total = totalSize.Int64
+	}
+	if avgSize.Valid {
+		avg = int64(avgSize.Float64) // Convert float64 to int64
+	}
+
+	return total, avg, nil
+}
+
+// GetLastActivityDates returns the last import and scan dates
+func (m *Manager) GetLastActivityDates() (string, string, error) {
+	var lastImport, lastScan sql.NullString
+
+	// Get the most recent added_at date as last scan
+	err := m.db.QueryRow("SELECT MAX(added_at) FROM books").Scan(&lastScan)
+	if err != nil {
+		return "Never", "Never", nil // Return default values instead of error
+	}
+
+	// For now, use the same date for both (you can implement separate tracking later)
+	if lastScan.Valid {
+		lastImport = lastScan
+	} else {
+		lastImport = sql.NullString{String: "Never", Valid: true}
+	}
+
+	// Convert to strings, defaulting to "Never" if NULL
+	lastImportStr := "Never"
+	lastScanStr := "Never"
+	if lastImport.Valid {
+		lastImportStr = lastImport.String
+	}
+	if lastScan.Valid {
+		lastScanStr = lastScan.String
+	}
+
+	return lastImportStr, lastScanStr, nil
+}
