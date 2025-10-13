@@ -6,7 +6,22 @@
     <title>FableFlow - Ebook Manager</title>
     
     <!-- Tailwind CSS CDN for styling -->
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class'
+        }
+    </script>
+    
+    <!-- Dark mode script -->
+    <script>
+        // Check for saved theme preference or default to light mode
+        if (localStorage.getItem('darkMode') === 'true') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
     
     <!-- HTMX for dynamic interactions -->
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
@@ -49,18 +64,30 @@
     <!-- Alpine.js for reactive components (defer to prevent auto-start) -->
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
-<body class="bg-gray-50" x-data="fableFlowApp()" x-init="init()">
+<body class="bg-gray-50 dark:bg-gray-900" x-data="fableFlowApp()" x-init="init()">
     <!-- Header -->
-    <header class="bg-white shadow-sm">
+    <header class="bg-white dark:bg-gray-800 shadow-sm">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
                 <div class="flex items-center">
-                    <h1 class="text-2xl font-bold text-gray-900 cursor-pointer m-0 p-0 border-0" @click="goHome()">📚 FableFlow</h1>
+                    <h1 class="text-2xl font-bold text-gray-900 dark:text-white dark:text-white cursor-pointer m-0 p-0 border-0" @click="goHome()">📚 FableFlow</h1>
                 </div>
                 
-                <!-- Hamburger Menu -->
-                <div class="relative" x-data="{ open: false }">
-                    <button @click="open = !open" class="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100">
+                <!-- Dark Mode Toggle & Hamburger Menu -->
+                <div class="flex items-center space-x-2">
+                    <!-- Dark Mode Toggle -->
+                    <button @click="toggleDarkMode()" class="p-2 rounded-md text-gray-400 hover:text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-700">
+                        <svg x-show="!darkMode" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                        </svg>
+                        <svg x-show="darkMode" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                        </svg>
+                    </button>
+                    
+                    <!-- Hamburger Menu -->
+                    <div class="relative" x-data="{ open: false }">
+                        <button @click="open = !open" class="p-2 rounded-md text-gray-400 hover:text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-700">
                         <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
                         </svg>
@@ -76,13 +103,14 @@
                          x-transition:leave-end="transform opacity-0 scale-95"
                          class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
                         <button @click="showAdminPanel(); open = false" 
-                                class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                class="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-700">
                             ⚙️ Admin
                         </button>
                         <button @click="showAbout(); open = false" 
-                                class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                class="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-700">
                             ℹ️ About
                         </button>
+                    </div>
                     </div>
                 </div>
             </div>
@@ -90,7 +118,7 @@
     </header>
 
     <!-- Navigation Breadcrumb -->
-    <nav class="bg-gray-100 border-b" x-show="breadcrumb.length > 0">
+    <nav class="bg-gray-100 dark:bg-gray-700 border-b dark:border-gray-600" x-show="breadcrumb.length > 0">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center space-x-2 py-3">
                 <button @click="goHome()" class="text-blue-600 hover:text-blue-800">Home</button>
@@ -112,14 +140,14 @@
         <!-- Home Page -->
         <div x-show="currentView === 'home'" class="space-y-6">
             <!-- Search Bar -->
-            <div class="bg-white shadow rounded-lg p-6">
-                <h2 class="text-xl font-semibold text-gray-900 mb-4">🔍 Search Books</h2>
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-white dark:text-white mb-4">🔍 Search Books</h2>
                 <div class="flex gap-4">
                     <input type="text" 
                            x-model="searchQuery"
                            @keyup.enter="performSearch()"
                            placeholder="Search by title or author..."
-                           class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                           class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                     <button @click="performSearch()" 
                             class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
                         Search
@@ -128,8 +156,8 @@
             </div>
 
             <!-- Browse Buttons Row -->
-            <div class="bg-white shadow rounded-lg p-6">
-                <h2 class="text-xl font-semibold text-gray-900 mb-4">📚 Browse Library</h2>
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-white dark:text-white mb-4">📚 Browse Library</h2>
                 <div class="flex flex-col sm:flex-row gap-4">
                     <button @click="browseAuthors()" 
                             class="flex-1 px-6 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 font-medium">
@@ -147,13 +175,13 @@
             </div>
 
             <!-- Recently Added Books -->
-            <div class="bg-white shadow rounded-lg p-6">
-                <h2 class="text-xl font-semibold text-gray-900 mb-6">📚 Recently Added Books</h2>
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-white dark:text-white mb-6">📚 Recently Added Books</h2>
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
                     <template x-for="book in recentBooks" :key="book.id">
-                        <div class="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
+                        <div class="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
                             <!-- Book Cover Thumbnail -->
-                            <div class="aspect-[3/4] bg-gray-100 flex items-center justify-center">
+                            <div class="aspect-[3/4] bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
                                 <img :src="book.id ? '/api/covers/' + book.id + '?t=' + Date.now() : '/static/default-book.svg'" 
                                      :alt="book.title + ' cover'"
                                      class="w-full h-full object-cover"
@@ -163,10 +191,10 @@
                             
                             <!-- Book Details -->
                             <div class="p-4">
-                                <h3 class="font-semibold text-gray-900 text-sm mb-1 line-clamp-2" x-text="book.title"></h3>
-                                <p class="text-xs text-gray-600 mb-2" x-text="'by ' + book.author"></p>
+                                <h3 class="font-semibold text-gray-900 dark:text-white text-sm mb-1 line-clamp-2" x-text="book.title"></h3>
+                                <p class="text-xs text-gray-600 dark:text-gray-300 mb-2" x-text="'by ' + book.author"></p>
                                 
-                                <div class="text-xs text-gray-500 mb-3">
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mb-3">
                                     <span class="font-medium" x-text="book.format.toUpperCase()"></span> • 
                                     <span x-text="formatFileSize(book.file_size)"></span>
                                     <span x-show="book.isbn && book.isbn.trim() !== ''" class="block mt-1">
@@ -183,14 +211,14 @@
                                 <div class="grid grid-cols-2 gap-2">
                                     <!-- Row 1: Download EPUB, Edit -->
                                     <a :href="'/api/download/' + book.id" 
-                                       class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                       class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-blue-600 bg-blue-50 dark:bg-blue-900/20 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
                                         <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                                         </svg>
                                         EPUB
                                     </a>
                                     <button @click="editBook(book.id)" 
-                                            class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-orange-600 bg-orange-50 rounded-md hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                                            class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-orange-600 bg-orange-50 dark:bg-orange-900/20 rounded-md hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-500">
                                         <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                         </svg>
@@ -199,7 +227,7 @@
                                     
                                     <!-- Row 2: Download AZW3, Read -->
                                     <button @click="convertBook(book.id, 'azw3')" 
-                                            class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-green-600 bg-green-50 rounded-md hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-500"
+                                            class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-green-600 bg-green-50 dark:bg-green-900/20 rounded-md hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-500"
                                             :disabled="loading">
                                         <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
@@ -208,7 +236,7 @@
                                     </button>
                                     <a :href="'/read/' + book.id" 
                                        target="_blank"
-                                       class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-purple-600 bg-purple-50 rounded-md hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                       class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-purple-600 bg-purple-50 dark:bg-purple-900/20 rounded-md hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500">
                                         <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
                                         </svg>
@@ -224,16 +252,16 @@
 
         <!-- Search Results -->
         <div x-show="currentView === 'search'" class="space-y-6">
-            <div class="bg-white shadow rounded-lg p-6">
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
                 <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-xl font-semibold text-gray-900">Search Results</h2>
+                    <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Search Results</h2>
                     <button @click="goHome()" class="text-blue-600 hover:text-blue-800">← Back to Home</button>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:6 gap-6">
                     <template x-for="book in searchResults" :key="book.id">
-                        <div class="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
+                        <div class="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
                             <!-- Book Cover Thumbnail -->
-                            <div class="aspect-[3/4] bg-gray-100 flex items-center justify-center">
+                            <div class="aspect-[3/4] bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
                                 <img :src="book.id ? '/api/covers/' + book.id + '?t=' + Date.now() : '/static/default-book.svg'" 
                                      :alt="book.title + ' cover'"
                                      class="w-full h-full object-cover"
@@ -243,10 +271,10 @@
                             
                             <!-- Book Details -->
                             <div class="p-4">
-                                <h3 class="font-semibold text-gray-900 text-sm mb-1 line-clamp-2" x-text="book.title"></h3>
-                                <p class="text-xs text-gray-600 mb-2" x-text="'by ' + book.author"></p>
+                                <h3 class="font-semibold text-gray-900 dark:text-white text-sm mb-1 line-clamp-2" x-text="book.title"></h3>
+                                <p class="text-xs text-gray-600 dark:text-gray-300 mb-2" x-text="'by ' + book.author"></p>
                                 
-                                <div class="text-xs text-gray-500 mb-3">
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mb-3">
                                     <span class="font-medium" x-text="book.format.toUpperCase()"></span> • 
                                     <span x-text="formatFileSize(book.file_size)"></span>
                                     <span x-show="book.isbn && book.isbn.trim() !== ''" class="block mt-1">
@@ -263,14 +291,14 @@
                                 <div class="grid grid-cols-2 gap-2">
                                     <!-- Row 1: Download EPUB, Edit -->
                                     <a :href="'/api/download/' + book.id" 
-                                       class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                       class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-blue-600 bg-blue-50 dark:bg-blue-900/20 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
                                         <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                                         </svg>
                                         EPUB
                                     </a>
                                     <button @click="editBook(book.id)" 
-                                            class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-orange-600 bg-orange-50 rounded-md hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                                            class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-orange-600 bg-orange-50 dark:bg-orange-900/20 rounded-md hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-500">
                                         <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                         </svg>
@@ -279,7 +307,7 @@
                                     
                                     <!-- Row 2: Download AZW3, Read -->
                                     <button @click="convertBook(book.id, 'azw3')" 
-                                            class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-green-600 bg-green-50 rounded-md hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-500"
+                                            class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-green-600 bg-green-50 dark:bg-green-900/20 rounded-md hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-500"
                                             :disabled="loading">
                                         <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
@@ -288,7 +316,7 @@
                                     </button>
                                     <a :href="'/read/' + book.id" 
                                        target="_blank"
-                                       class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-purple-600 bg-purple-50 rounded-md hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                       class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-purple-600 bg-purple-50 dark:bg-purple-900/20 rounded-md hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500">
                                         <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
                                         </svg>
@@ -304,9 +332,9 @@
 
         <!-- Author Letters -->
         <div x-show="currentView === 'authors'" class="space-y-6">
-            <div class="bg-white shadow rounded-lg p-6">
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
                 <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-xl font-semibold text-gray-900">Browse by Author</h2>
+                    <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Browse by Author</h2>
                     <button @click="goHome()" class="text-blue-600 hover:text-blue-800">← Back to Home</button>
                 </div>
                 
@@ -314,13 +342,13 @@
                 <div x-show="authorLetters && authorLetters.length > 0" class="grid grid-cols-6 md:grid-cols-12 gap-2">
                     <template x-for="letter in authorLetters" :key="letter">
                         <button @click="browseAuthorsByLetter(letter)" 
-                                class="p-3 text-center border border-gray-300 rounded-md hover:bg-blue-50 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                class="p-3 text-center border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md hover:bg-blue-50 dark:bg-blue-900/20 dark:hover:bg-blue-900/20 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 x-text="letter"></button>
                     </template>
                 </div>
                 
                 <!-- Show empty state when no authors -->
-                <div x-show="!authorLetters || authorLetters.length === 0" class="text-center py-8 text-gray-500">
+                <div x-show="!authorLetters || authorLetters.length === 0" class="text-center py-8 text-gray-500 dark:text-gray-400">
                     <div class="text-4xl mb-2">📚</div>
                     <p class="text-lg">No authors found in your library.</p>
                     <p class="text-sm mt-2">Add some books to get started!</p>
@@ -330,15 +358,15 @@
 
         <!-- Authors by Letter -->
         <div x-show="currentView === 'authors-letter'" class="space-y-6">
-            <div class="bg-white shadow rounded-lg p-6">
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
                 <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-xl font-semibold text-gray-900" x-text="'Authors starting with ' + currentLetter "></h2>
+                    <h2 class="text-xl font-semibold text-gray-900 dark:text-white" x-text="'Authors starting with ' + currentLetter "></h2>
                     <button @click="browseAuthors()" class="text-blue-600 hover:text-blue-800">← Back to Authors</button>
                 </div>
                 <div class="space-y-2">
                     <template x-for="author in authorsByLetter" :key="author">
                         <button @click="browseBooksByAuthor(author)" 
-                                class="block w-full text-left p-3 border border-gray-200 rounded-md hover:bg-blue-50 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                class="block w-full text-left p-3 border border-gray-200 dark:border-gray-600 rounded-md hover:bg-blue-50 dark:bg-blue-900/20 dark:hover:bg-blue-900/20 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 x-text="author"></button>
                     </template>
                 </div>
@@ -347,16 +375,16 @@
 
         <!-- Books by Author -->
         <div x-show="currentView === 'books-by-author'" class="space-y-6">
-            <div class="bg-white shadow rounded-lg p-6">
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
                 <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-xl font-semibold text-gray-900" x-text="'Books by ' + currentAuthor"></h2>
+                    <h2 class="text-xl font-semibold text-gray-900 dark:text-white" x-text="'Books by ' + currentAuthor"></h2>
                     <button @click="browseAuthorsByLetter(currentAuthor.charAt(0))" class="text-blue-600 hover:text-blue-800">← Back to Authors</button>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
                     <template x-for="book in booksByAuthor" :key="book.id">
-                        <div class="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
+                        <div class="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
                             <!-- Book Cover Thumbnail -->
-                            <div class="aspect-[3/4] bg-gray-100 flex items-center justify-center">
+                            <div class="aspect-[3/4] bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
                                 <img :src="book.id ? '/api/covers/' + book.id + '?t=' + Date.now() : '/static/default-book.svg'" 
                                      :alt="book.title + ' cover'"
                                      class="w-full h-full object-cover"
@@ -366,9 +394,9 @@
                             
                             <!-- Book Details -->
                             <div class="p-4">
-                                <h3 class="font-semibold text-gray-900 text-sm mb-1 line-clamp-2" x-text="book.title"></h3>
+                                <h3 class="font-semibold text-gray-900 dark:text-white text-sm mb-1 line-clamp-2" x-text="book.title"></h3>
                                 
-                                <div class="text-xs text-gray-500 mb-3">
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mb-3">
                                     <span class="font-medium" x-text="book.format.toUpperCase()"></span> • 
                                     <span x-text="formatFileSize(book.file_size)"></span>
                                     <span x-show="book.isbn && book.isbn.trim() !== ''" class="block mt-1">
@@ -385,14 +413,14 @@
                                 <div class="grid grid-cols-2 gap-2">
                                     <!-- Row 1: Download EPUB, Edit -->
                                     <a :href="'/api/download/' + book.id" 
-                                       class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                       class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-blue-600 bg-blue-50 dark:bg-blue-900/20 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
                                         <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                                         </svg>
                                         EPUB
                                     </a>
                                     <button @click="editBook(book.id)" 
-                                            class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-orange-600 bg-orange-50 rounded-md hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                                            class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-orange-600 bg-orange-50 dark:bg-orange-900/20 rounded-md hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-500">
                                         <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                         </svg>
@@ -401,7 +429,7 @@
                                     
                                     <!-- Row 2: Download AZW3, Read -->
                                     <button @click="convertBook(book.id, 'azw3')" 
-                                            class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-green-600 bg-green-50 rounded-md hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-500"
+                                            class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-green-600 bg-green-50 dark:bg-green-900/20 rounded-md hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-500"
                                             :disabled="loading">
                                         <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
@@ -410,7 +438,7 @@
                                     </button>
                                     <a :href="'/read/' + book.id" 
                                        target="_blank"
-                                       class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-purple-600 bg-purple-50 rounded-md hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                       class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-purple-600 bg-purple-50 dark:bg-purple-900/20 rounded-md hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500">
                                         <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
                                         </svg>
@@ -426,9 +454,9 @@
 
         <!-- Title Letters -->
         <div x-show="currentView === 'titles'" class="space-y-6">
-            <div class="bg-white shadow rounded-lg p-6">
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
                 <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-xl font-semibold text-gray-900">Browse by Title</h2>
+                    <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Browse by Title</h2>
                     <button @click="goHome()" class="text-blue-600 hover:text-blue-800">← Back to Home</button>
                 </div>
                 
@@ -436,13 +464,13 @@
                 <div x-show="titleLetters && titleLetters.length > 0" class="grid grid-cols-6 md:grid-cols-12 gap-2">
                     <template x-for="letter in titleLetters" :key="letter">
                         <button @click="browseTitlesByLetter(letter)" 
-                                class="p-3 text-center border border-gray-300 rounded-md hover:bg-purple-50 hover:border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                class="p-3 text-center border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md hover:bg-purple-50 dark:bg-purple-900/20 dark:hover:bg-purple-900/20 hover:border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
                                 x-text="letter"></button>
                     </template>
                 </div>
                 
                 <!-- Show empty state when no titles -->
-                <div x-show="!titleLetters || titleLetters.length === 0" class="text-center py-8 text-gray-500">
+                <div x-show="!titleLetters || titleLetters.length === 0" class="text-center py-8 text-gray-500 dark:text-gray-400">
                     <div class="text-4xl mb-2">📖</div>
                     <p class="text-lg">No titles found in your library.</p>
                     <p class="text-sm mt-2">Add some books to get started!</p>
@@ -452,15 +480,15 @@
 
         <!-- Titles by Letter -->
         <div x-show="currentView === 'titles-letter'" class="space-y-6">
-            <div class="bg-white shadow rounded-lg p-6">
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
                 <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-xl font-semibold text-gray-900" x-text="'Titles starting with ' + currentLetter "></h2>
+                    <h2 class="text-xl font-semibold text-gray-900 dark:text-white" x-text="'Titles starting with ' + currentLetter "></h2>
                     <button @click="browseTitles()" class="text-blue-600 hover:text-blue-800">← Back to Titles</button>
                 </div>
                 <div class="space-y-2">
                     <template x-for="title in titlesByLetter" :key="title">
                         <button @click="browseBooksByTitle(title)" 
-                                class="block w-full text-left p-3 border border-gray-200 rounded-md hover:bg-purple-50 hover:border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                class="block w-full text-left p-3 border border-gray-200 dark:border-gray-600 rounded-md hover:bg-purple-50 dark:bg-purple-900/20 dark:hover:bg-purple-900/20 hover:border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
                                 x-text="title"></button>
                     </template>
                 </div>
@@ -469,16 +497,16 @@
 
         <!-- Books by Title -->
         <div x-show="currentView === 'books-by-title'" class="space-y-6">
-            <div class="bg-white shadow rounded-lg p-6">
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
                 <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-xl font-semibold text-gray-900" x-text="'Books titled ' + currentTitle "></h2>
+                    <h2 class="text-xl font-semibold text-gray-900 dark:text-white" x-text="'Books titled ' + currentTitle "></h2>
                     <button @click="browseTitlesByLetter(currentTitle.charAt(0))" class="text-blue-600 hover:text-blue-800">← Back to Titles</button>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:6 gap-6">
                     <template x-for="book in booksByTitle" :key="book.id">
-                        <div class="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
+                        <div class="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
                             <!-- Book Cover Thumbnail -->
-                            <div class="aspect-[3/4] bg-gray-100 flex items-center justify-center">
+                            <div class="aspect-[3/4] bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
                                 <img :src="book.id ? '/api/covers/' + book.id + '?t=' + Date.now() : '/static/default-book.svg'" 
                                      :alt="book.title + ' cover'"
                                      class="w-full h-full object-cover"
@@ -488,10 +516,10 @@
                             
                             <!-- Book Details -->
                             <div class="p-4">
-                                <h3 class="font-semibold text-gray-900 text-sm mb-1 line-clamp-2" x-text="book.title"></h3>
-                                <p class="text-xs text-gray-600 mb-2" x-text="'by ' + book.author"></p>
+                                <h3 class="font-semibold text-gray-900 dark:text-white text-sm mb-1 line-clamp-2" x-text="book.title"></h3>
+                                <p class="text-xs text-gray-600 dark:text-gray-300 mb-2" x-text="'by ' + book.author"></p>
                                 
-                                <div class="text-xs text-gray-500 mb-3">
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mb-3">
                                     <span class="font-medium" x-text="book.format.toUpperCase()"></span> • 
                                     <span x-text="formatFileSize(book.file_size)"></span>
                                     <span x-show="book.isbn && book.isbn.trim() !== ''" class="block mt-1">
@@ -508,14 +536,14 @@
                                 <div class="grid grid-cols-2 gap-2">
                                     <!-- Row 1: Download EPUB, Edit -->
                                     <a :href="'/api/download/' + book.id" 
-                                       class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                       class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-blue-600 bg-blue-50 dark:bg-blue-900/20 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
                                         <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                                         </svg>
                                         EPUB
                                     </a>
                                     <button @click="editBook(book.id)" 
-                                            class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-orange-600 bg-orange-50 rounded-md hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                                            class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-orange-600 bg-orange-50 dark:bg-orange-900/20 rounded-md hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-500">
                                         <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                         </svg>
@@ -524,7 +552,7 @@
                                     
                                     <!-- Row 2: Download AZW3, Read -->
                                     <button @click="convertBook(book.id, 'azw3')" 
-                                            class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-green-600 bg-green-50 rounded-md hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-500"
+                                            class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-green-600 bg-green-50 dark:bg-green-900/20 rounded-md hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-500"
                                             :disabled="loading">
                                         <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
@@ -533,7 +561,7 @@
                                     </button>
                                     <a :href="'/read/' + book.id" 
                                        target="_blank"
-                                       class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-purple-600 bg-purple-50 rounded-md hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                       class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-purple-600 bg-purple-50 dark:bg-purple-900/20 rounded-md hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500">
                                         <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
                                         </svg>
@@ -549,18 +577,18 @@
 
         <!-- Random Books -->
         <div x-show="currentView === 'random'" class="space-y-6">
-            <div class="bg-white shadow rounded-lg p-6">
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
                 <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-xl font-semibold text-gray-900">🎲 Random Books</h2>
+                    <h2 class="text-xl font-semibold text-gray-900 dark:text-white">🎲 Random Books</h2>
                     <button @click="goHome()" class="text-blue-600 hover:text-blue-800">← Back to Home</button>
                 </div>
                 
                 <!-- Random Books Grid -->
                 <div x-show="randomBooks && randomBooks.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
                     <template x-for="book in randomBooks" :key="book.id">
-                        <div class="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
+                        <div class="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
                             <!-- Book Cover Thumbnail -->
-                            <div class="aspect-[3/4] bg-gray-100 flex items-center justify-center">
+                            <div class="aspect-[3/4] bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
                                 <img :src="book.id ? '/api/covers/' + book.id + '?t=' + Date.now() : '/static/default-book.svg'" 
                                      :alt="book.title + ' cover'"
                                      class="w-full h-full object-cover"
@@ -570,16 +598,16 @@
                             
                             <!-- Book Details -->
                             <div class="p-4">
-                                <h3 class="font-semibold text-gray-900 text-sm mb-1 line-clamp-2" x-text="book.title"></h3>
-                                <p class="text-xs text-gray-600 mb-2" x-text="'by ' + book.author"></p>
+                                <h3 class="font-semibold text-gray-900 dark:text-white text-sm mb-1 line-clamp-2" x-text="book.title"></h3>
+                                <p class="text-xs text-gray-600 dark:text-gray-300 mb-2" x-text="'by ' + book.author"></p>
                                 
-                                <div class="text-xs text-gray-500 mb-3">
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mb-3">
                                     <span class="font-medium" x-text="book.format.toUpperCase()"></span> • 
                                     <span x-text="formatFileSize(book.file_size)"></span>
                                 </div>
                                 
                                 <!-- ISBN if available -->
-                                <div x-show="book.isbn" class="text-xs text-gray-500 mb-3">
+                                <div x-show="book.isbn" class="text-xs text-gray-500 dark:text-gray-400 mb-3">
                                     <span class="font-medium">ISBN:</span> 
                                     <a :href="'https://books.google.com/books?vid=ISBN' + book.isbn.replace(/[^0-9]/g, '')" 
                                        target="_blank" 
@@ -592,14 +620,14 @@
                                 <div class="grid grid-cols-2 gap-2">
                                     <!-- Row 1: Download EPUB, Edit -->
                                     <a :href="'/api/download/' + book.id" 
-                                       class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                       class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-blue-600 bg-blue-50 dark:bg-blue-900/20 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
                                         <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                                         </svg>
                                         EPUB
                                     </a>
                                     <button @click="editBook(book.id)" 
-                                            class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-orange-600 bg-orange-50 rounded-md hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                                            class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-orange-600 bg-orange-50 dark:bg-orange-900/20 rounded-md hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-500">
                                         <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                         </svg>
@@ -608,7 +636,7 @@
                                     
                                     <!-- Row 2: Download AZW3, Read -->
                                     <button @click="convertBook(book.id, 'azw3')" 
-                                            class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-green-600 bg-green-50 rounded-md hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-500"
+                                            class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-green-600 bg-green-50 dark:bg-green-900/20 rounded-md hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-500"
                                             :disabled="loading">
                                         <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
@@ -617,7 +645,7 @@
                                     </button>
                                     <a :href="'/read/' + book.id" 
                                        target="_blank"
-                                       class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-purple-600 bg-purple-50 rounded-md hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                       class="inline-flex items-center justify-center px-2 py-2 text-xs font-medium text-purple-600 bg-purple-50 dark:bg-purple-900/20 rounded-md hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500">
                                         <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
                                         </svg>
@@ -630,7 +658,7 @@
                 </div>
                 
                 <!-- Empty state when no random books -->
-                <div x-show="!randomBooks || randomBooks.length === 0" class="text-center py-8 text-gray-500">
+                <div x-show="!randomBooks || randomBooks.length === 0" class="text-center py-8 text-gray-500 dark:text-gray-400">
                     <div class="text-4xl mb-2">🎲</div>
                     <p class="text-lg">No books found in your library.</p>
                     <p class="text-sm mt-2">Add some books to get started!</p>
@@ -640,14 +668,14 @@
 
         <!-- Quarantine Panel -->
         <div x-show="currentView === 'quarantine'" class="space-y-6">
-            <div class="bg-white shadow rounded-lg p-6">
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
                 <div class="flex items-center justify-between mb-6">
-                    <h2 class="text-2xl font-semibold text-gray-900">🚫 Quarantine Books</h2>
+                    <h2 class="text-2xl font-semibold text-gray-900 dark:text-white">🚫 Quarantine Books</h2>
                     <button @click="goBack()" class="text-blue-600 hover:text-blue-800">← Back</button>
                 </div>
                 
                 <div class="mb-4">
-                    <p class="text-sm text-gray-600">
+                    <p class="text-sm text-gray-600 dark:text-gray-300">
                         Books in quarantine have missing or corrupted metadata. Click on a book to edit its metadata and move it to the main library.
                     </p>
                 </div>
@@ -655,24 +683,24 @@
                 <!-- Quarantine Books List -->
                 <div x-show="quarantineBooks && quarantineBooks.length > 0" class="space-y-4">
                     <template x-for="book in quarantineBooks" :key="book.file_path">
-                        <div class="bg-gray-50 rounded-lg p-4 border border-orange-200 hover:bg-orange-50 cursor-pointer"
+                        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-orange-200 dark:border-orange-800 hover:bg-orange-50 dark:bg-orange-900/20 dark:hover:bg-orange-900/20 cursor-pointer"
                              @click="editQuarantineBook(book)">
                             <div class="flex items-center justify-between">
                                 <div class="flex-1">
-                                    <h3 class="text-lg font-semibold text-gray-900" x-text="book.title"></h3>
-                                    <p class="text-sm text-gray-600" x-text="book.author"></p>
-                                    <p class="text-xs text-gray-500 mt-1" x-text="book.file_path"></p>
+                                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white" x-text="book.title"></h3>
+                                    <p class="text-sm text-gray-600 dark:text-gray-300" x-text="book.author"></p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1" x-text="book.file_path"></p>
                                 </div>
                                 <div class="text-right">
                                     <span class="text-sm text-orange-600 font-medium">Quarantine</span>
-                                    <p class="text-xs text-gray-500" x-text="formatFileSize(book.file_size)"></p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400" x-text="formatFileSize(book.file_size)"></p>
                                 </div>
                             </div>
                         </div>
                     </template>
                 </div>
                 
-                <div x-show="!quarantineBooks || quarantineBooks.length === 0" class="text-center py-8 text-gray-500">
+                <div x-show="!quarantineBooks || quarantineBooks.length === 0" class="text-center py-8 text-gray-500 dark:text-gray-400">
                     <div class="text-4xl mb-2">📚</div>
                     <p>No books in quarantine.</p>
                 </div>
@@ -681,16 +709,16 @@
 
         <!-- Edit Book -->
         <div x-show="currentView === 'edit'" class="space-y-6">
-            <div class="bg-white shadow rounded-lg p-6">
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
                 <div class="flex items-center justify-between mb-6">
-                    <h2 class="text-2xl font-semibold text-gray-900">✏️ Edit Book Metadata</h2>
+                    <h2 class="text-2xl font-semibold text-gray-900 dark:text-white">✏️ Edit Book Metadata</h2>
                     <button @click="goBack()" class="text-blue-600 hover:text-blue-800">← Back</button>
                 </div>
                 
                 <div class="flex flex-col lg:flex-row gap-8">
                     <!-- Left: Book Cover -->
                     <div class="w-full lg:w-2/5">
-                        <div class="aspect-[3/4] bg-gray-100 rounded-lg overflow-hidden shadow-sm">
+                        <div class="aspect-[3/4] bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden shadow-sm">
                             <img :src="editingBook.id ? '/api/covers/' + editingBook.id + '?t=' + Date.now() : '/static/default-book.svg'" 
                                  :alt="editingBook.title + ' cover'"
                                  class="w-full h-full object-cover"
@@ -703,16 +731,16 @@
                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             <!-- Current Form -->
                             <div>
-                                <h4 class="text-md font-semibold text-gray-900 mb-4">Current Data</h4>
+                                <h4 class="text-md font-semibold text-gray-900 dark:text-white mb-4">Current Data</h4>
                                 <form @submit.prevent="saveBookMetadata()" class="space-y-4">
                                     <!-- Title -->
                                     <div>
-                                        <label for="edit-title" class="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                                        <label for="edit-title" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
                                         <div class="flex items-center gap-2">
                                             <input type="text" 
                                                    id="edit-title"
                                                    x-model="editingBook.title"
-                                                   class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                   class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                                    placeholder="Enter book title"
                                                    required>
                                             <button type="button" 
@@ -727,12 +755,12 @@
                                     
                                     <!-- Author -->
                                     <div>
-                                        <label for="edit-author" class="block text-sm font-medium text-gray-700 mb-1">Author</label>
+                                        <label for="edit-author" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Author</label>
                                         <div class="flex items-center gap-2">
                                             <input type="text" 
                                                    id="edit-author"
                                                    x-model="editingBook.author"
-                                                   class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                   class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                                    placeholder="Enter author name"
                                                    required>
                                             <button type="button" 
@@ -747,12 +775,12 @@
                                     
                                     <!-- ISBN -->
                                     <div>
-                                        <label for="edit-isbn" class="block text-sm font-medium text-gray-700 mb-1">ISBN</label>
+                                        <label for="edit-isbn" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ISBN</label>
                                         <div class="flex items-center gap-2">
                                             <input type="text" 
                                                    id="edit-isbn"
                                                    x-model="editingBook.isbn"
-                                                   class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                   class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                                    placeholder="Enter ISBN (optional)">
                                             <button type="button" 
                                                     @click="importField('isbn')"
@@ -766,12 +794,12 @@
                                     
                                     <!-- Publisher -->
                                     <div>
-                                        <label for="edit-publisher" class="block text-sm font-medium text-gray-700 mb-1">Publisher</label>
+                                        <label for="edit-publisher" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Publisher</label>
                                         <div class="flex items-center gap-2">
                                             <input type="text" 
                                                    id="edit-publisher"
                                                    x-model="editingBook.publisher"
-                                                   class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                   class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                                    placeholder="Enter publisher (optional)">
                                             <button type="button" 
                                                     @click="importField('publisher')"
@@ -787,30 +815,30 @@
                             
                             <!-- Fetched Data -->
                             <div x-show="isbnLookup.fetchedData">
-                                <h4 class="text-md font-semibold text-gray-900 mb-4">Fetched Data</h4>
+                                <h4 class="text-md font-semibold text-gray-900 dark:text-white mb-4">Fetched Data</h4>
                                 <div class="space-y-4">
                                     <!-- Fetched Title -->
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Title</label>
-                                        <div class="px-3 py-2 bg-green-50 border border-green-200 rounded-md text-sm text-green-800 min-h-[42px] flex items-center" x-text="isbnLookup.fetchedData?.title || 'Not found'"></div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
+                                        <div class="px-3 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 rounded-md text-sm text-green-800 min-h-[42px] flex items-center" x-text="isbnLookup.fetchedData?.title || 'Not found'"></div>
                                     </div>
                                     
                                     <!-- Fetched Author -->
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Author</label>
-                                        <div class="px-3 py-2 bg-green-50 border border-green-200 rounded-md text-sm text-green-800 min-h-[42px] flex items-center" x-text="isbnLookup.fetchedData?.author || 'Not found'"></div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Author</label>
+                                        <div class="px-3 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 rounded-md text-sm text-green-800 min-h-[42px] flex items-center" x-text="isbnLookup.fetchedData?.author || 'Not found'"></div>
                                     </div>
                                     
                                     <!-- Fetched ISBN -->
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">ISBN</label>
-                                        <div class="px-3 py-2 bg-green-50 border border-green-200 rounded-md text-sm text-green-800 min-h-[42px] flex items-center" x-text="isbnLookup.fetchedData?.isbn || 'Not found'"></div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ISBN</label>
+                                        <div class="px-3 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 rounded-md text-sm text-green-800 min-h-[42px] flex items-center" x-text="isbnLookup.fetchedData?.isbn || 'Not found'"></div>
                                     </div>
                                     
                                     <!-- Fetched Publisher -->
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Publisher</label>
-                                        <div class="px-3 py-2 bg-green-50 border border-green-200 rounded-md text-sm text-green-800 min-h-[42px] flex items-center" x-text="isbnLookup.fetchedData?.publisher || 'Not found'"></div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Publisher</label>
+                                        <div class="px-3 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 rounded-md text-sm text-green-800 min-h-[42px] flex items-center" x-text="isbnLookup.fetchedData?.publisher || 'Not found'"></div>
                                     </div>
                                 </div>
                             </div>
@@ -820,7 +848,7 @@
                         <div class="flex justify-end space-x-4 pt-6">
                             <button type="button" 
                                     @click="cancelEdit()"
-                                    class="px-6 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                                    class="px-6 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500">
                                 Cancel
                             </button>
                             <button @click="saveBookMetadata()" 
@@ -834,17 +862,17 @@
                 </div>
                 
                 <!-- ISBN Lookup Section -->
-                <div class="mt-8 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div class="mt-8 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200">
                     <h3 class="text-lg font-semibold text-blue-900 mb-4">🔍 Lookup Metadata from ISBN</h3>
                     <div class="flex flex-col lg:flex-row gap-6">
                         <!-- ISBN Input -->
                         <div class="flex-1">
-                            <label for="isbn-lookup" class="block text-sm font-medium text-gray-700 mb-2">ISBN</label>
+                            <label for="isbn-lookup" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">ISBN</label>
                             <div class="flex gap-2">
                                 <input type="text" 
                                        id="isbn-lookup"
                                        x-model="isbnLookup.isbn"
-                                       class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                       class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                        placeholder="Enter ISBN (e.g., 978-0-123456-78-9)"
                                        :disabled="isbnLookup.loading">
                                 <button @click="lookupISBN()" 
@@ -862,17 +890,17 @@
 
         <!-- Admin Panel -->
         <div x-show="currentView === 'admin'" class="space-y-6">
-            <div class="bg-white shadow rounded-lg p-6">
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
                 <div class="flex items-center justify-between mb-6">
-                    <h2 class="text-2xl font-semibold text-gray-900">⚙️ Admin Panel</h2>
+                    <h2 class="text-2xl font-semibold text-gray-900 dark:text-white">⚙️ Admin Panel</h2>
                     <button @click="goHome()" class="text-blue-600 hover:text-blue-800">← Back to Home</button>
                 </div>
                 
                 <!-- Book Import Section -->
                 <div class="mb-8">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">📚 Book Import</h3>
-                    <div class="bg-gray-50 rounded-lg p-4 mb-4">
-                        <p class="text-sm text-gray-600 mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📚 Book Import</h3>
+                    <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-4">
+                        <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">
                             Import books from the import directory. Files will be organized in Calibre-style structure: <code>Author/Title/Title - Author.epub</code>
                         </p>
                         
@@ -902,7 +930,7 @@
                         <div x-show="importStatus" class="bg-white rounded border p-4">
                             <div class="flex justify-between items-center mb-2">
                                 <span class="font-medium">Import Status</span>
-                                <span class="text-sm text-gray-500" x-text="importStatus?.session_id"></span>
+                                <span class="text-sm text-gray-500 dark:text-gray-400" x-text="importStatus?.session_id"></span>
                             </div>
                             
                             <!-- Progress Bar -->
@@ -914,19 +942,19 @@
                             <!-- Status Details -->
                             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                                 <div>
-                                    <span class="text-gray-500">Status:</span>
+                                    <span class="text-gray-500 dark:text-gray-400">Status:</span>
                                     <span class="ml-2 font-medium" x-text="importStatus?.status"></span>
                                 </div>
                                 <div>
-                                    <span class="text-gray-500">Total:</span>
+                                    <span class="text-gray-500 dark:text-gray-400">Total:</span>
                                     <span class="ml-2 font-medium" x-text="importStatus?.total_files"></span>
                                 </div>
                                 <div>
-                                    <span class="text-gray-500">Processed:</span>
+                                    <span class="text-gray-500 dark:text-gray-400">Processed:</span>
                                     <span class="ml-2 font-medium" x-text="importStatus?.processed_files"></span>
                                 </div>
                                 <div>
-                                    <span class="text-gray-500">Progress:</span>
+                                    <span class="text-gray-500 dark:text-gray-400">Progress:</span>
                                     <span class="ml-2 font-medium" x-text="(importStatus?.progress || 0) + '%'"></span>
                                 </div>
                             </div>
@@ -937,15 +965,15 @@
                                 <div class="grid grid-cols-3 gap-4 text-sm">
                                     <div class="text-center">
                                         <div class="text-green-600 font-bold text-lg" x-text="importStatus?.imported_files || 0"></div>
-                                        <div class="text-gray-500">Imported</div>
+                                        <div class="text-gray-500 dark:text-gray-400">Imported</div>
                                     </div>
                                     <div class="text-center">
                                         <div class="text-yellow-600 font-bold text-lg" x-text="importStatus?.quarantined_files || 0"></div>
-                                        <div class="text-gray-500">Quarantined</div>
+                                        <div class="text-gray-500 dark:text-gray-400">Quarantined</div>
                                     </div>
                                     <div class="text-center">
-                                        <div class="text-gray-600 font-bold text-lg" x-text="importStatus?.skipped_files || 0"></div>
-                                        <div class="text-gray-500">Skipped</div>
+                                        <div class="text-gray-600 dark:text-gray-300 font-bold text-lg" x-text="importStatus?.skipped_files || 0"></div>
+                                        <div class="text-gray-500 dark:text-gray-400">Skipped</div>
                                     </div>
                                 </div>
                             </div>
@@ -962,7 +990,7 @@
                         </div>
                         
                 <!-- No Status Message -->
-                <div x-show="!importStatus" class="text-center py-8 text-gray-500">
+                <div x-show="!importStatus" class="text-center py-8 text-gray-500 dark:text-gray-400">
                     <div class="text-4xl mb-2">📚</div>
                     <p>No import session active. Start with a dry run to see what would be imported.</p>
                 </div>
@@ -971,10 +999,10 @@
         
         <!-- Import Session Analysis -->
         <div class="mb-8">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">📊 Import Session Analysis</h3>
-            <div class="bg-gray-50 rounded-lg p-4">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📊 Import Session Analysis</h3>
+            <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
                 <div class="flex justify-between items-center mb-4">
-                    <p class="text-sm text-gray-600">View and analyze past import sessions</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-300">View and analyze past import sessions</p>
                     <button @click="loadImportLogs()" 
                             class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
                         🔄 Refresh Logs
@@ -984,7 +1012,7 @@
                 <!-- Logs List -->
                 <div x-show="importLogs && importLogs.length > 0" class="space-y-2">
                     <template x-for="log in importLogs" :key="log.session_id">
-                        <div class="bg-white rounded border p-3 hover:bg-gray-50 cursor-pointer"
+                        <div class="bg-white rounded border p-3 hover:bg-gray-50 dark:bg-gray-800 cursor-pointer"
                              @click="viewImportLog(log.session_id)">
                             <div class="flex justify-between items-start">
                                 <div class="flex-1">
@@ -999,11 +1027,11 @@
                                                       'bg-blue-100 text-blue-800'"
                                               x-text="log.status"></span>
                                     </div>
-                                    <div class="text-sm text-gray-600">
+                                    <div class="text-sm text-gray-600 dark:text-gray-300">
                                         <span x-text="formatDate(log.start_time)"></span>
                                         <span x-show="log.end_time"> - <span x-text="formatDate(log.end_time)"></span></span>
                                     </div>
-                                    <div class="text-xs text-gray-500 mt-1">
+                                    <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                         Total: <span x-text="log.total_files"></span> | 
                                         Imported: <span x-text="log.imported_files"></span> | 
                                         Quarantined: <span x-text="log.quarantined_files"></span> | 
@@ -1021,7 +1049,7 @@
                 </div>
                 
                 <!-- No Logs Message -->
-                <div x-show="!importLogs || importLogs.length === 0" class="text-center py-8 text-gray-500">
+                <div x-show="!importLogs || importLogs.length === 0" class="text-center py-8 text-gray-500 dark:text-gray-400">
                     <div class="text-4xl mb-2">📋</div>
                     <p>No import logs available yet.</p>
                 </div>
@@ -1040,10 +1068,10 @@
              @click.self="selectedLog = null">
             <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
                 <!-- Modal Header -->
-                <div class="bg-gray-50 px-6 py-4 border-b flex justify-between items-center">
-                    <h3 class="text-lg font-semibold text-gray-900">Import Session Details</h3>
+                <div class="bg-gray-50 dark:bg-gray-800 px-6 py-4 border-b dark:border-gray-600 flex justify-between items-center">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Import Session Details</h3>
                     <button @click="selectedLog = null" 
-                            class="text-gray-400 hover:text-gray-600">
+                            class="text-gray-400 hover:text-gray-600 dark:text-gray-300">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
@@ -1055,19 +1083,19 @@
                     <div x-show="selectedLog">
                         <!-- Session Info -->
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                            <div class="bg-blue-50 p-3 rounded">
+                            <div class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded">
                                 <div class="text-sm text-blue-600 font-medium">Session ID</div>
                                 <div class="text-lg font-semibold text-blue-900" x-text="selectedLog?.id"></div>
                             </div>
-                            <div class="bg-green-50 p-3 rounded">
+                            <div class="bg-green-50 dark:bg-green-900/20 p-3 rounded">
                                 <div class="text-sm text-green-600 font-medium">Status</div>
                                 <div class="text-lg font-semibold text-green-900" x-text="selectedLog?.status"></div>
                             </div>
-                            <div class="bg-purple-50 p-3 rounded">
+                            <div class="bg-purple-50 dark:bg-purple-900/20 p-3 rounded">
                                 <div class="text-sm text-purple-600 font-medium">Type</div>
                                 <div class="text-lg font-semibold text-purple-900" x-text="selectedLog?.dry_run ? 'Dry Run' : 'Import'"></div>
                             </div>
-                            <div class="bg-orange-50 p-3 rounded">
+                            <div class="bg-orange-50 dark:bg-orange-900/20 p-3 rounded">
                                 <div class="text-sm text-orange-600 font-medium">Duration</div>
                                 <div class="text-lg font-semibold text-orange-900" x-text="selectedLog?.start_time && selectedLog?.end_time ? formatDuration(selectedLog.start_time, selectedLog.end_time) : 'N/A'"></div>
                             </div>
@@ -1075,34 +1103,34 @@
                         
                         <!-- File Statistics -->
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                            <div class="text-center p-3 bg-gray-50 rounded">
-                                <div class="text-2xl font-bold text-gray-900" x-text="selectedLog?.total_files || 0"></div>
-                                <div class="text-sm text-gray-600">Total Files</div>
+                            <div class="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded">
+                                <div class="text-2xl font-bold text-gray-900 dark:text-white" x-text="selectedLog?.total_files || 0"></div>
+                                <div class="text-sm text-gray-600 dark:text-gray-300">Total Files</div>
                             </div>
-                            <div class="text-center p-3 bg-green-50 rounded">
+                            <div class="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded">
                                 <div class="text-2xl font-bold text-green-600" x-text="selectedLog?.imported_files || 0"></div>
-                                <div class="text-sm text-gray-600">Imported</div>
+                                <div class="text-sm text-gray-600 dark:text-gray-300">Imported</div>
                             </div>
                             <div class="text-center p-3 bg-yellow-50 rounded">
                                 <div class="text-2xl font-bold text-yellow-600" x-text="selectedLog?.quarantined_files || 0"></div>
-                                <div class="text-sm text-gray-600">Quarantined</div>
+                                <div class="text-sm text-gray-600 dark:text-gray-300">Quarantined</div>
                             </div>
-                            <div class="text-center p-3 bg-gray-50 rounded">
-                                <div class="text-2xl font-bold text-gray-600" x-text="selectedLog?.skipped_files || 0"></div>
-                                <div class="text-sm text-gray-600">Skipped</div>
+                            <div class="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded">
+                                <div class="text-2xl font-bold text-gray-600 dark:text-gray-300" x-text="selectedLog?.skipped_files || 0"></div>
+                                <div class="text-sm text-gray-600 dark:text-gray-300">Skipped</div>
                             </div>
                         </div>
                         
                         <!-- Timestamps -->
                         <div class="mb-6">
-                            <h4 class="text-md font-semibold text-gray-900 mb-3">Timeline</h4>
+                            <h4 class="text-md font-semibold text-gray-900 dark:text-white mb-3">Timeline</h4>
                             <div class="space-y-2">
-                                <div class="flex justify-between items-center py-2 border-b">
-                                    <span class="text-sm text-gray-600">Started:</span>
+                                <div class="flex justify-between items-center py-2 border-b dark:border-gray-600">
+                                    <span class="text-sm text-gray-600 dark:text-gray-300">Started:</span>
                                     <span class="text-sm font-medium" x-text="selectedLog?.start_time ? formatDateTime(selectedLog.start_time) : 'N/A'"></span>
                                 </div>
-                                <div class="flex justify-between items-center py-2 border-b">
-                                    <span class="text-sm text-gray-600">Completed:</span>
+                                <div class="flex justify-between items-center py-2 border-b dark:border-gray-600">
+                                    <span class="text-sm text-gray-600 dark:text-gray-300">Completed:</span>
                                     <span class="text-sm font-medium" x-text="selectedLog?.end_time ? formatDateTime(selectedLog.end_time) : 'N/A'"></span>
                                 </div>
                             </div>
@@ -1110,7 +1138,7 @@
                         
                         <!-- Errors -->
                         <div x-show="selectedLog?.errors && selectedLog.errors.length > 0" class="mb-6">
-                            <h4 class="text-md font-semibold text-gray-900 mb-3">Errors</h4>
+                            <h4 class="text-md font-semibold text-gray-900 dark:text-white mb-3">Errors</h4>
                             <div class="bg-red-50 border border-red-200 rounded-lg p-4">
                                 <template x-for="error in selectedLog?.errors || []" :key="error">
                                     <div class="text-sm text-red-700 mb-2 p-2 bg-red-100 rounded" x-text="error"></div>
@@ -1119,7 +1147,7 @@
                         </div>
                         
                         <!-- Log Path -->
-                        <div class="text-xs text-gray-500">
+                        <div class="text-xs text-gray-500 dark:text-gray-400">
                             <span class="font-medium">Log file:</span> <span x-text="selectedLog?.log_path"></span>
                         </div>
                     </div>
@@ -1141,8 +1169,8 @@
              @click="showAboutModal = false">
             <div @click.stop class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
                 <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-xl font-semibold text-gray-900">ℹ️ About FableFlow</h3>
-                    <button @click="showAboutModal = false" class="text-gray-400 hover:text-gray-600">
+                    <h3 class="text-xl font-semibold text-gray-900 dark:text-white">ℹ️ About FableFlow</h3>
+                    <button @click="showAboutModal = false" class="text-gray-400 hover:text-gray-600 dark:text-gray-300">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
@@ -1150,16 +1178,16 @@
                 </div>
                 <div class="space-y-3">
                     <div>
-                        <span class="font-medium text-gray-700">Software:</span>
-                        <span class="ml-2 text-gray-600">FableFlow</span>
+                        <span class="font-medium text-gray-700 dark:text-gray-300">Software:</span>
+                        <span class="ml-2 text-gray-600 dark:text-gray-300">FableFlow</span>
                     </div>
                     <div>
-                        <span class="font-medium text-gray-700">Version:</span>
-                        <span class="ml-2 text-gray-600" x-text="appVersion"></span>
+                        <span class="font-medium text-gray-700 dark:text-gray-300">Version:</span>
+                        <span class="ml-2 text-gray-600 dark:text-gray-300" x-text="appVersion"></span>
                     </div>
                     <div>
-                        <span class="font-medium text-gray-700">Description:</span>
-                        <span class="ml-2 text-gray-600">Ebook Library Manager</span>
+                        <span class="font-medium text-gray-700 dark:text-gray-300">Description:</span>
+                        <span class="ml-2 text-gray-600 dark:text-gray-300">Ebook Library Manager</span>
                     </div>
                 </div>
                 <div class="mt-6 flex justify-end">
@@ -1173,8 +1201,8 @@
 
         <!-- Loading Indicator -->
         <div x-show="loading" class="text-center py-8">
-            <div class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-500">
-                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <div class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400">
+                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-gray-500 dark:text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
@@ -1191,7 +1219,7 @@
          x-transition:leave="transition ease-in duration-200"
          x-transition:leave-start="transform translate-y-0 opacity-100"
          x-transition:leave-end="transform translate-y-2 opacity-0"
-         class="fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50"
+         class="fixed bottom-4 right-4 bg-green-50 dark:bg-green-900/200 text-white px-6 py-3 rounded-lg shadow-lg z-50"
          x-text="toast.message">
     </div>
 
