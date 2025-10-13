@@ -132,3 +132,4 @@ conversion-tmp/
 # Local development files
 local/
 dev/
+.cursor

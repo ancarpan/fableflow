@@ -64,9 +64,15 @@ function fableFlowApp() {
         // Initialize dark mode from localStorage
         initializeDarkMode() {
             const savedDarkMode = localStorage.getItem('darkMode');
+            console.log('Initializing dark mode, saved value:', savedDarkMode);
             if (savedDarkMode === 'true') {
                 this.darkMode = true;
                 document.documentElement.classList.add('dark');
+                console.log('Dark mode initialized as enabled');
+            } else {
+                this.darkMode = false;
+                document.documentElement.classList.remove('dark');
+                console.log('Dark mode initialized as disabled');
             }
         },
 
@@ -77,11 +83,11 @@ function fableFlowApp() {
             if (this.darkMode) {
                 document.documentElement.classList.add('dark');
                 localStorage.setItem('darkMode', 'true');
-                console.log('Dark mode enabled');
+                console.log('Dark mode enabled - class added:', document.documentElement.classList.contains('dark'));
             } else {
                 document.documentElement.classList.remove('dark');
                 localStorage.setItem('darkMode', 'false');
-                console.log('Dark mode disabled');
+                console.log('Dark mode disabled - class removed:', !document.documentElement.classList.contains('dark'));
             }
         },
 
