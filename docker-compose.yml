@@ -4,18 +4,21 @@ services:
     image: fableflow:latest
     ports: ["8080:8080"]
     environment:
-      - FF_SERVESTATIC=false
+      - CONTAINER_MODE=backend
+      - FF_HOST=0.0.0.0
+      - FF_PORT=8080
     volumes:
-      - ./ebooks:/ebooks
-      - ./database:/database
-    command: ["/app/fableflow-backend", "-c", "/app/config.yaml"]
+      - ./data/ebooks:/ebooks
+      - ./data/database:/database
+      - ${FF_IMPORT_DIR:-./data/import}:/import
+      - ./data/quarantine:/quarantine
+      - ./data/logs:/logs
 
   frontend:
     image: fableflow:latest
     ports: ["3000:3000"]
     environment:
-      - CONTENT_DIR=/web
-      - BACKEND_ADDR=http://backend:8080
-    entrypoint: ["/app/fableflow-frontend"]
-#    command: ["/usr/bin/python3", "-m", "http.server", "3000", "--directory", "/web"]
+      - CONTAINER_MODE=frontend
+      - FF_BACKEND_ADDR=http://backend:8080
     depends_on: [backend]
+

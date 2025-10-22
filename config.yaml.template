@@ -4,7 +4,6 @@
 server:
   host: ${FF_HOST}  # IP to bind to (use "0.0.0.0" to allow external connections)
   port: ${FF_PORT}  # Port to listen on
-  serve_static_assets: ${FF_SERVESTATIC}  # Whether to serve static files (frontend) from backend
 
 # Library settings
 library:

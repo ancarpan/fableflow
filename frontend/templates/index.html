@@ -125,13 +125,12 @@
     <nav class="bg-gray-100 dark:bg-gray-700 border-b dark:border-gray-600" x-show="breadcrumb.length > 0">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center space-x-2 py-3">
-                <button @click="goHome()" class="text-blue-600 hover:text-blue-800">Home</button>
                 <template x-for="(item, index) in breadcrumb" :key="index">
                     <div class="flex items-center space-x-2">
-                        <span class="text-gray-400">›</span>
+                        <span x-show="index > 0" class="text-gray-400">›</span>
                         <button @click="navigateToBreadcrumb(index + 1)" 
                                 class="text-blue-600 hover:text-blue-800"
-                                x-text="item.name"></button>
+                                x-text="item"></button>
                     </div>
                 </template>
             </div>
@@ -181,7 +180,7 @@
             <!-- Recently Added Books -->
             <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-white dark:text-white mb-6">📚 Recently Added Books</h2>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+                <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
                     <template x-for="book in recentBooks" :key="book.id">
                         <div class="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
                             <!-- Book Cover Thumbnail -->
@@ -261,7 +260,17 @@
                     <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Search Results</h2>
                     <button @click="goHome()" class="text-blue-600 hover:text-blue-800">← Back to Home</button>
                 </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+                
+                <!-- Show search query and results count -->
+                <div class="mb-4 text-sm text-gray-600 dark:text-gray-300">
+                    Searching for: "<span x-text="searchQuery"></span>"
+                    <span x-show="searchResults && searchResults.length > 0" class="ml-2">
+                        (<span x-text="searchResults.length"></span> result<span x-show="searchResults.length !== 1">s</span>)
+                    </span>
+                </div>
+                
+                <!-- Results grid -->
+                <div x-show="searchResults && searchResults.length > 0" class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
                     <template x-for="book in searchResults" :key="book.id">
                         <div class="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
                             <!-- Book Cover Thumbnail -->
@@ -331,6 +340,13 @@
                         </div>
                     </template>
                 </div>
+                
+                <!-- Empty state when no results found -->
+                <div x-show="!searchResults || searchResults.length === 0" class="text-center py-8 text-gray-500 dark:text-gray-400">
+                    <div class="text-4xl mb-2">🔍</div>
+                    <p class="text-lg">No books found</p>
+                    <p class="text-sm mt-2">Try a different search term or browse by author/title</p>
+                </div>
             </div>
         </div>
 
@@ -367,12 +383,35 @@
                     <h2 class="text-xl font-semibold text-gray-900 dark:text-white" x-text="'Authors starting with ' + currentLetter "></h2>
                     <button @click="browseAuthors()" class="text-blue-600 hover:text-blue-800">← Back to Authors</button>
                 </div>
+                
+                <!-- Search box for filtering authors -->
+                <div class="mb-4">
+                    <input type="text" 
+                           x-model="authorSearchQuery"
+                           @input="filterAuthorsByLetter()"
+                           placeholder="Search authors..."
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                
+                <!-- Show search results count -->
+                <div x-show="authorSearchQuery.trim()" class="mb-2 text-sm text-gray-600 dark:text-gray-300">
+                    <span x-text="filteredAuthorsByLetter.length"></span> authors found
+                </div>
+                
                 <div class="space-y-2">
-                    <template x-for="author in authorsByLetter" :key="author">
+                    <template x-for="author in filteredAuthorsByLetter" :key="author">
                         <button @click="browseBooksByAuthor(author)" 
                                 class="block w-full text-left p-3 border border-gray-200 dark:border-gray-600 rounded-md hover:bg-blue-50 dark:bg-blue-900/20 dark:hover:bg-blue-900/20 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 x-text="author"></button>
                     </template>
+                    
+                    <!-- Show message when no results found -->
+                    <div x-show="authorSearchQuery.trim() && filteredAuthorsByLetter.length === 0" 
+                         class="text-center py-8 text-gray-500 dark:text-gray-400">
+                        <div class="text-4xl mb-2">🔍</div>
+                        <p>No authors found matching "<span x-text="authorSearchQuery"></span>"</p>
+                        <p class="text-sm mt-2">Try a different search term</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -384,7 +423,7 @@
                     <h2 class="text-xl font-semibold text-gray-900 dark:text-white" x-text="'Books by ' + currentAuthor"></h2>
                     <button @click="browseAuthorsByLetter(currentAuthor.charAt(0))" class="text-blue-600 hover:text-blue-800">← Back to Authors</button>
                 </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+                <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
                     <template x-for="book in booksByAuthor" :key="book.id">
                         <div class="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
                             <!-- Book Cover Thumbnail -->
@@ -506,7 +545,7 @@
                     <h2 class="text-xl font-semibold text-gray-900 dark:text-white" x-text="'Books titled ' + currentTitle "></h2>
                     <button @click="browseTitlesByLetter(currentTitle.charAt(0))" class="text-blue-600 hover:text-blue-800">← Back to Titles</button>
                 </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+                <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
                     <template x-for="book in booksByTitle" :key="book.id">
                         <div class="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
                             <!-- Book Cover Thumbnail -->
@@ -588,7 +627,7 @@
                 </div>
                 
                 <!-- Random Books Grid -->
-                <div x-show="randomBooks && randomBooks.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+                <div x-show="randomBooks && randomBooks.length > 0" class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
                     <template x-for="book in randomBooks" :key="book.id">
                         <div class="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
                             <!-- Book Cover Thumbnail -->
@@ -723,7 +762,7 @@
                     <!-- Left: Book Cover -->
                     <div class="w-full lg:w-2/5">
                         <div class="aspect-[3/4] bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden shadow-sm">
-                            <img :src="editingBook.id ? '/api/covers/' + editingBook.id + '?t=' + Date.now() : '/static/default-book.svg'" 
+                            <img :src="getCoverImage()" 
                                  :alt="editingBook.title + ' cover'"
                                  class="w-full h-full object-cover"
                                  @error="$el.src='/static/default-book.svg'">
@@ -732,6 +771,77 @@
                     
                     <!-- Right: Edit Form and Fetched Data -->
                     <div class="w-full lg:w-3/5">
+                        <!-- Quarantine Information (only for quarantine books) -->
+                        <div x-show="editingBook.quarantine_reason" class="mb-6 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
+                            <div class="flex items-start space-x-3">
+                                <div class="flex-shrink-0">
+                                    <svg class="h-5 w-5 text-orange-400" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                    </svg>
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="text-sm font-medium text-orange-800 dark:text-orange-200">Quarantine Information</h3>
+                                    <div class="mt-2 text-sm text-orange-700 dark:text-orange-300">
+                                        <p><strong>Reason:</strong> <span x-text="editingBook.quarantine_reason"></span></p>
+                                        <p x-show="editingBook.quarantine_detail" class="mt-1"><strong>Detail:</strong> <span x-text="editingBook.quarantine_detail"></span></p>
+                                        <p x-show="editingBook.quarantine_date" class="mt-1"><strong>Date:</strong> <span x-text="editingBook.quarantine_date"></span></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Smart Metadata Search -->
+                        <div class="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                            <div class="flex items-center justify-between mb-3">
+                                <h4 class="text-md font-semibold text-blue-800 dark:text-blue-200">🔍 Smart Metadata Search</h4>
+                                <button @click="searchMetadata()" 
+                                        :disabled="metadataSearch.loading"
+                                        class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    <span x-show="!metadataSearch.loading">Search Open Library</span>
+                                    <span x-show="metadataSearch.loading">Searching...</span>
+                                </button>
+                            </div>
+                            
+                            <!-- Search Results -->
+                            <div x-show="metadataSearch.suggestions.length > 0" class="mt-4">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h5 class="text-sm font-medium text-blue-700 dark:text-blue-300">
+                                        Found <span x-text="metadataSearch.suggestions.length"></span> suggestions 
+                                        (Confidence: <span x-text="Math.round(metadataSearch.confidence * 100)"></span>%)
+                                    </h5>
+                                </div>
+                                
+                                <template x-for="(suggestion, index) in metadataSearch.suggestions" :key="index">
+                                    <div class="p-3 bg-white dark:bg-gray-800 rounded border mb-2 hover:bg-gray-50 dark:hover:bg-gray-700">
+                                        <div class="flex justify-between items-start">
+                                            <div class="flex-1">
+                                                <p class="font-medium text-gray-900 dark:text-white" x-text="suggestion.title"></p>
+                                                <p class="text-sm text-gray-600 dark:text-gray-300" x-text="suggestion.author"></p>
+                                                <div class="flex items-center space-x-4 mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                                    <span x-show="suggestion.isbn">ISBN: <span x-text="suggestion.isbn"></span></span>
+                                                    <span x-show="suggestion.publisher">Publisher: <span x-text="suggestion.publisher"></span></span>
+                                                    <span x-show="suggestion.year">Year: <span x-text="suggestion.year"></span></span>
+                                                    <span class="text-blue-600">Confidence: <span x-text="Math.round(suggestion.confidence * 100)"></span>%</span>
+                                                </div>
+                                            </div>
+                                            <button @click="useSuggestion(suggestion)" 
+                                                    class="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700">
+                                                Use This
+                                            </button>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                            
+                            <!-- No Results Message -->
+                            <div x-show="metadataSearch.suggestions.length === 0 && metadataSearch.searched" 
+                                 class="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded">
+                                <p class="text-sm text-yellow-800 dark:text-yellow-200">
+                                    No matching books found in Open Library. You can still edit the metadata manually below.
+                                </p>
+                            </div>
+                        </div>
+                        
                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             <!-- Current Form -->
                             <div>

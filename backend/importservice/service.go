@@ -7,26 +7,37 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
 	"fableflow/backend/metadata"
 )
 
+// QuarantinedBook represents a book that was quarantined during import
+type QuarantinedBook struct {
+	FilePath       string    `json:"file_path"`
+	QuarantinePath string    `json:"quarantine_path"`
+	Reason         string    `json:"reason"`
+	ErrorDetail    string    `json:"error_detail"`
+	Timestamp      time.Time `json:"timestamp"`
+}
+
 // ImportSession represents a single import session
 type ImportSession struct {
-	ID               string     `json:"id"`
-	StartTime        time.Time  `json:"start_time"`
-	EndTime          *time.Time `json:"end_time,omitempty"`
-	Status           string     `json:"status"` // "running", "completed", "failed"
-	DryRun           bool       `json:"dry_run"`
-	TotalFiles       int        `json:"total_files"`
-	ProcessedFiles   int        `json:"processed_files"`
-	ImportedFiles    int        `json:"imported_files"`
-	QuarantinedFiles int        `json:"quarantined_files"`
-	SkippedFiles     int        `json:"skipped_files"`
-	Errors           []string   `json:"errors"`
-	LogPath          string     `json:"log_path"`
+	ID               string            `json:"id"`
+	StartTime        time.Time         `json:"start_time"`
+	EndTime          *time.Time        `json:"end_time,omitempty"`
+	Status           string            `json:"status"` // "running", "completed", "failed"
+	DryRun           bool              `json:"dry_run"`
+	TotalFiles       int               `json:"total_files"`
+	ProcessedFiles   int               `json:"processed_files"`
+	ImportedFiles    int               `json:"imported_files"`
+	QuarantinedFiles int               `json:"quarantined_files"`
+	SkippedFiles     int               `json:"skipped_files"`
+	Errors           []string          `json:"errors"`
+	QuarantinedBooks []QuarantinedBook `json:"quarantined_books,omitempty"`
+	LogPath          string            `json:"log_path"`
 }
 
 // ImportService manages book import operations
@@ -262,8 +273,43 @@ func (s *ImportService) quarantineFile(session *ImportSession, filePath, reason 
 		return
 	}
 
+	// Add to quarantined books list
+	s.addQuarantinedBook(session, filePath, quarantinePath, reason)
+
 	s.logInfo(session, fmt.Sprintf("Quarantined: %s (reason: %s)", filePath, reason))
 	s.incrementQuarantined(session)
+}
+
+// addQuarantinedBook adds a quarantined book to the session's quarantined books list
+func (s *ImportService) addQuarantinedBook(session *ImportSession, filePath, quarantinePath, reason string) {
+	s.sessionMutex.Lock()
+	defer s.sessionMutex.Unlock()
+
+	// Extract error detail from the most recent error message
+	errorDetail := ""
+	if len(session.Errors) > 0 {
+		// Get the last error message for this file
+		for i := len(session.Errors) - 1; i >= 0; i-- {
+			if strings.Contains(session.Errors[i], filePath) {
+				// Extract the error detail part after the colon
+				parts := strings.Split(session.Errors[i], ": ")
+				if len(parts) > 1 {
+					errorDetail = parts[1]
+				}
+				break
+			}
+		}
+	}
+
+	quarantinedBook := QuarantinedBook{
+		FilePath:       filePath,
+		QuarantinePath: quarantinePath,
+		Reason:         reason,
+		ErrorDetail:    errorDetail,
+		Timestamp:      time.Now(),
+	}
+
+	session.QuarantinedBooks = append(session.QuarantinedBooks, quarantinedBook)
 }
 
 // Helper methods for updating session counters

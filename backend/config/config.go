@@ -12,9 +12,8 @@ import (
 // Config represents the application configuration
 type Config struct {
 	Server struct {
-		Host              string `yaml:"host"`
-		Port              string `yaml:"port"`
-		ServeStaticAssets bool   `yaml:"serve_static_assets"`
+		Host string `yaml:"host"`
+		Port string `yaml:"port"`
 	} `yaml:"server"`
 	Library struct {
 		ScanDirectory       string `yaml:"scan_directory"`
@@ -36,7 +35,6 @@ func LoadConfig(filename string) (*Config, error) {
 	config := &Config{}
 	config.Server.Host = "localhost"
 	config.Server.Port = "8080"
-	config.Server.ServeStaticAssets = false
 	config.Library.ScanDirectory = "/home/user/Books"
 	config.Library.AutoScan = false
 	config.Library.ImportDirectory = "/home/user/Import"

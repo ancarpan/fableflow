@@ -73,15 +73,7 @@ func main() {
 	}
 
 	// Create handlers
-	booksHandler := handlers.NewBooksHandler(db, &handlers.Config{
-		Library: struct {
-			ScanDirectory       string `yaml:"scan_directory"`
-			QuarantineDirectory string `yaml:"quarantine_directory"`
-		}{
-			ScanDirectory:       cfg.Library.ScanDirectory,
-			QuarantineDirectory: cfg.Library.QuarantineDirectory,
-		},
-	})
+	booksHandler := handlers.NewBooksHandler(db, cfg)
 	scanHandler := handlers.NewScanHandler(db)
 	healthHandler := handlers.NewHealthHandler()
 	conversionHandler := handlers.NewConversionHandler(db, cfg.TmpDir)
@@ -115,6 +107,8 @@ func main() {
 	http.HandleFunc("/api/books/lookup-isbn", corsMiddleware(booksHandler.LookupISBN))
 	http.HandleFunc("/api/quarantine", corsMiddleware(booksHandler.GetQuarantineBooks))
 	http.HandleFunc("/api/quarantine/edit", corsMiddleware(booksHandler.EditQuarantineBook))
+	http.HandleFunc("/api/quarantine/covers/", booksHandler.ServeQuarantineCover)
+	http.HandleFunc("/api/books/search-metadata", corsMiddleware(booksHandler.SearchMetadata))
 	http.HandleFunc("/api/search", booksHandler.SearchBooks)
 	http.HandleFunc("/api/authors", booksHandler.GetAuthors)
 	http.HandleFunc("/api/authors/letter", booksHandler.GetAuthorsByLetter)
@@ -138,52 +132,26 @@ func main() {
 	http.HandleFunc("/api/import/logs", corsMiddleware(importHandler.GetImportLogs))
 	http.HandleFunc("/api/library/stats", corsMiddleware(booksHandler.GetLibraryStats))
 
-	// Conditionally serve static assets
-	if cfg.Server.ServeStaticAssets {
-		// Serve static files (CSS, JS, images)
-		http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static/"))))
+	// API-only mode - return JSON response for root
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// Add CORS headers
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
-		// Serve main HTML template for SPA
-		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			// Add CORS headers
-			w.Header().Set("Access-Control-Allow-Origin", "*")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
 
-			if r.Method == "OPTIONS" {
-				w.WriteHeader(http.StatusOK)
-				return
-			}
-
-			// Serve the main HTML template for SPA
-			http.ServeFile(w, r, "./templates/index.html")
-		})
-	} else {
-		// API-only mode - return JSON response for root
-		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			// Add CORS headers
-			w.Header().Set("Access-Control-Allow-Origin", "*")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-
-			if r.Method == "OPTIONS" {
-				w.WriteHeader(http.StatusOK)
-				return
-			}
-
-			// Return API information
-			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintf(w, `{"message": "FableFlow API", "version": "1.0.0", "mode": "api-only"}`)
-		})
-	}
+		// Return API information
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, `{"message": "FableFlow API", "version": "1.0.0", "mode": "api-only"}`)
+	})
 
 	// Start server
 	address := cfg.Server.Host + ":" + cfg.Server.Port
-	if cfg.Server.ServeStaticAssets {
-		fmt.Printf("🚀 FableFlow starting on http://%s (serving static assets)\n", address)
-	} else {
-		fmt.Printf("🚀 FableFlow API starting on http://%s (API-only mode)\n", address)
-	}
+	fmt.Printf("🚀 FableFlow API starting on http://%s (API-only mode)\n", address)
 	fmt.Printf("📚 Default scan directory: %s\n", cfg.Library.ScanDirectory)
 	fmt.Printf("🔧 Configuration: %s\n", func() string {
 		if _, err := os.Stat("config.yaml"); err == nil {

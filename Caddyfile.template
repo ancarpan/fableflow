@@ -1,0 +1,55 @@
+# Caddyfile template for FableFlow
+# This file will be processed by envsubst to replace environment variables
+
+{
+    # Global configuration
+    log {
+        output stdout
+        format console
+        level INFO
+    }
+}
+
+:3000 {
+    # Enable request logging to stdout
+    log {
+        output stdout
+        format console
+        level DEBUG
+    }
+    # Static files - serve from static directory (highest priority)
+    handle /static/* {
+        root * /web/
+        file_server
+    }
+    # Reader routes - serve reader.html directly
+    handle /read/* {
+        root * /web/templates
+        try_files /reader.html
+        file_server
+    }
+    
+    # API routes - proxy to backend
+    handle /api/* {
+        reverse_proxy ${FF_BACKEND_ADDR}
+        
+        # Add CORS headers
+        header {
+            Access-Control-Allow-Origin "*"
+            Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+            Access-Control-Allow-Headers "Content-Type, Authorization"
+        }
+    }
+    
+    # Reader routes - proxy to backend
+    handle /read/* {
+        reverse_proxy ${FF_BACKEND_ADDR}
+    }
+    
+    # Root path - serve main HTML file (catch-all)
+    handle {
+        root * /web/templates
+        try_files {path} /index.html
+        file_server
+    }
+}

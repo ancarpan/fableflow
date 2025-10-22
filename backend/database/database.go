@@ -107,7 +107,7 @@ func (dm *Manager) GetAllBooks() ([]models.Book, error) {
 
 // SearchBooks searches for books by title or author
 func (dm *Manager) SearchBooks(query string) ([]models.Book, error) {
-	searchQuery := `SELECT id, title, author, file_path, file_size, format, added_at 
+	searchQuery := `SELECT id, title, author, file_path, file_size, format, isbn, publisher, added_at, updated_at 
 					FROM books 
 					WHERE title LIKE ? OR author LIKE ? 
 					ORDER BY title`
@@ -122,7 +122,7 @@ func (dm *Manager) SearchBooks(query string) ([]models.Book, error) {
 	var books []models.Book
 	for rows.Next() {
 		var book models.Book
-		err := rows.Scan(&book.ID, &book.Title, &book.Author, &book.FilePath, &book.FileSize, &book.Format, &book.AddedAt)
+		err := rows.Scan(&book.ID, &book.Title, &book.Author, &book.FilePath, &book.FileSize, &book.Format, &book.ISBN, &book.Publisher, &book.AddedAt, &book.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
