@@ -1,7 +1,7 @@
 # docker-compose.yml
 services:
   backend:
-    image: fableflow:latest
+    image: ghcr.io/ancarpan/fableflow:latest
     ports: ["8080:8080"]
     environment:
       - CONTAINER_MODE=backend
@@ -15,7 +15,7 @@ services:
       - ./data/logs:/logs
 
   frontend:
-    image: fableflow:latest
+    image: ghcr.io/ancarpan/fableflow:latest
     ports: ["3000:3000"]
     environment:
       - CONTAINER_MODE=frontend
