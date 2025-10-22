@@ -8,18 +8,18 @@ server:
 
 # Library settings
 library:
-  scan_directory: "/Users/acarpani/P/ff/ebooks"  # Default directory to scan for ebooks
+  scan_directory: "../data/ebooks"  # Default directory to scan for ebooks
   auto_scan: true                            # Automatically scan on startup (true/false)
-  import_directory: "/Users/acarpani/P/ebooks"  # Directory to scan for books to import
-  quarantine_directory: "/Users/acarpani/P/ff/quarantine"  # Directory for files with missing metadata
+  import_directory: "../data/ebooks"  # Directory to scan for books to import
+  quarantine_directory: "../data/quarantine"  # Directory for files with missing metadata
 
 # Temporary directory settings
 tmp_dir: "/tmp/fableflow"  # Directory for temporary files (conversions, downloads, etc.)
 
 # Logging settings
-logdir: "/Users/acarpani/P/ff/logs"  # Directory for import session logs
+logdir: "../data/logs"  # Directory for import session logs
 max_import_logs: 10  # Maximum number of import session logs to keep
 
 # Database settings (optional - uses defaults if not specified)
 database:
-  path: "./ebooks.db"  # Path to SQLite database file
+  path: "../data/ebooks.db"  # Path to SQLite database file

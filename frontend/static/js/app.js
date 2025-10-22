@@ -9,6 +9,14 @@ function fableFlowApp() {
         darkMode: false,
         showAboutModal: false,
         
+        // Metadata search
+        metadataSearch: {
+            loading: false,
+            suggestions: [],
+            confidence: 0,
+            searched: false
+        },
+        
         // App version
         appVersion: 'v0.1-alpha',
         
@@ -40,6 +48,11 @@ function fableFlowApp() {
         currentLetter: '',
         currentAuthor: '',
         currentTitle: '',
+        
+        // Author search functionality
+        authorSearchQuery: '',
+        filteredAuthorsByLetter: [],
+        
         
         // Toast notifications
         toast: {
@@ -106,6 +119,18 @@ function fableFlowApp() {
             this.currentView = 'home';
             this.breadcrumb = [];
             this.searchQuery = '';
+            this.loadRecentBooks();
+        },
+
+        goBack() {
+            if (this.breadcrumb.length > 1) {
+                // Remove last breadcrumb item and navigate to the previous level
+                this.breadcrumb = this.breadcrumb.slice(0, -1);
+                this.navigateToPage(this.breadcrumb[this.breadcrumb.length - 1]);
+            } else {
+                // If only one breadcrumb item left, go home
+                this.goHome();
+            }
         },
 
         navigateToBreadcrumb(index) {
@@ -116,16 +141,61 @@ function fableFlowApp() {
                 return;
             }
             
-            const targetBreadcrumb = this.breadcrumb[index - 1];
             this.breadcrumb = this.breadcrumb.slice(0, index);
-            
-            // Set the current view without making API calls
-            this.currentView = targetBreadcrumb.view;
+            this.navigateToPage(this.breadcrumb[this.breadcrumb.length - 1]);
         },
 
-        addToBreadcrumb(name, view) {
-            this.breadcrumb.push({ name, view });
+        // Centralized navigation method
+        navigateToPage(pageName) {
+            switch (pageName) {
+                case 'Home':
+                    this.goHome();
+                    break;
+                case 'Random':
+                    this.browseRandom();
+                    break;
+                case 'Admin':
+                    this.showAdminPanel();
+                    break;
+                case 'Quarantine':
+                    this.showQuarantine();
+                    break;
+                case 'Edit Book':
+                    // Stay on current edit page
+                    break;
+                case 'Authors':
+                    this.browseAuthors();
+                    break;
+                case 'Authors (A)':
+                    this.browseAuthorsByLetter(this.currentLetter);
+                    break;
+                case 'Author Name':
+                    this.browseBooksByAuthor(this.currentAuthor);
+                    break;
+                case 'Titles':
+                    this.browseTitles();
+                    break;
+                case 'Titles (A)':
+                    this.browseTitlesByLetter(this.currentLetter);
+                    break;
+                case 'Title Name':
+                    this.browseBooksByTitle(this.currentTitle);
+                    break;
+                default:
+                    // Handle dynamic author/title names and letter patterns
+                    if (pageName.startsWith('Authors (')) {
+                        const letter = pageName.match(/Authors \((.)\)/)[1];
+                        this.browseAuthorsByLetter(letter);
+                    } else if (pageName.startsWith('Titles (')) {
+                        const letter = pageName.match(/Titles \((.)\)/)[1];
+                        this.browseTitlesByLetter(letter);
+                    } else {
+                        // Handle dynamic author/title names (not in switch cases)
+                        this.goHome();
+                    }
+            }
         },
+
 
         // Search functionality
         async performSearch() {
@@ -140,21 +210,36 @@ function fableFlowApp() {
                 const response = await fetch(`/api/search?q=${encodeURIComponent(this.searchQuery)}`);
                 if (!response.ok) throw new Error('Search failed');
                 
-                this.searchResults = await response.json();
+                const results = await response.json();
+                // Ensure we have a valid array
+                this.searchResults = Array.isArray(results) ? results : [];
             } catch (error) {
                 console.error('Search error:', error);
                 this.showToast('Search failed. Please try again.');
+                this.searchResults = [];
             } finally {
                 this.loading = false;
             }
+        },
+
+        // Filter authors by search query
+        filterAuthorsByLetter() {
+            if (!this.authorSearchQuery.trim()) {
+                this.filteredAuthorsByLetter = this.authorsByLetter;
+                return;
+            }
+            
+            const query = this.authorSearchQuery.toLowerCase();
+            this.filteredAuthorsByLetter = this.authorsByLetter.filter(author => 
+                author.toLowerCase().includes(query)
+            );
         },
 
         // Author browsing
         async browseAuthors() {
             this.loading = true;
             this.currentView = 'authors';
-            this.breadcrumb = [];
-            this.addToBreadcrumb('Authors', 'authors');
+            this.breadcrumb = ['Home', 'Authors'];
             
             try {
                 const response = await fetch('/api/authors');
@@ -189,13 +274,15 @@ function fableFlowApp() {
             this.loading = true;
             this.currentView = 'authors-letter';
             this.currentLetter = letter;
-            this.addToBreadcrumb(`Authors (${letter})`, 'authors-letter');
+            this.authorSearchQuery = ''; // Reset search when changing letters
+            this.breadcrumb = ['Home', 'Authors', `Authors (${letter})`];
             
             try {
                 const response = await fetch(`/api/authors/letter?letter=${encodeURIComponent(letter)}`);
                 if (!response.ok) throw new Error('Failed to load authors by letter');
                 
                 this.authorsByLetter = await response.json();
+                this.filteredAuthorsByLetter = this.authorsByLetter; // Initialize filtered list
             } catch (error) {
                 console.error('Authors by letter error:', error);
                 this.showToast('Failed to load authors.');
@@ -208,7 +295,7 @@ function fableFlowApp() {
             this.loading = true;
             this.currentView = 'books-by-author';
             this.currentAuthor = author;
-            this.addToBreadcrumb(author, 'books-by-author');
+            this.breadcrumb = ['Home', 'Authors', `Authors (${this.currentLetter})`, author];
             
             try {
                 const response = await fetch(`/api/authors/books?author=${encodeURIComponent(author)}`);
@@ -227,8 +314,7 @@ function fableFlowApp() {
         async browseTitles() {
             this.loading = true;
             this.currentView = 'titles';
-            this.breadcrumb = [];
-            this.addToBreadcrumb('Titles', 'titles');
+            this.breadcrumb = ['Home', 'Titles'];
             
             try {
                 const response = await fetch('/api/titles');
@@ -263,8 +349,7 @@ function fableFlowApp() {
         async browseRandom() {
             this.loading = true;
             this.currentView = 'random';
-            this.breadcrumb = [];
-            this.addToBreadcrumb('Random', 'random');
+            this.breadcrumb = ['Home', 'Random'];
             
             try {
                 const response = await fetch('/api/books/random?limit=24');
@@ -291,7 +376,7 @@ function fableFlowApp() {
             this.loading = true;
             this.currentView = 'titles-letter';
             this.currentLetter = letter;
-            this.addToBreadcrumb(`Titles (${letter})`, 'titles-letter');
+            this.breadcrumb = ['Home', 'Titles', `Titles (${letter})`];
             
             try {
                 const response = await fetch(`/api/titles/letter?letter=${encodeURIComponent(letter)}`);
@@ -310,7 +395,7 @@ function fableFlowApp() {
             this.loading = true;
             this.currentView = 'books-by-title';
             this.currentTitle = title;
-            this.addToBreadcrumb(title, 'books-by-title');
+            this.breadcrumb = ['Home', 'Titles', `Titles (${this.currentLetter})`, title];
             
             try {
                 const response = await fetch(`/api/titles/books?title=${encodeURIComponent(title)}`);
@@ -444,9 +529,7 @@ function fableFlowApp() {
         // Show admin panel
         showAdminPanel() {
             this.currentView = 'admin';
-            this.breadcrumb = [
-                { name: 'Admin', action: null }
-            ];
+            this.breadcrumb = ['Home', 'Admin'];
             // Load import logs when showing admin panel
             this.loadImportLogs();
         },
@@ -801,9 +884,7 @@ function fableFlowApp() {
         // Quarantine functionality
         async showQuarantine() {
             this.currentView = 'quarantine';
-            this.breadcrumb = [
-                { name: 'Quarantine', action: null }
-            ];
+            this.breadcrumb = ['Home', 'Admin', 'Quarantine'];
             await this.loadQuarantineBooks();
         },
         
@@ -829,7 +910,11 @@ function fableFlowApp() {
                 title: book.title,
                 author: book.author,
                 isbn: book.isbn || '',
-                publisher: book.publisher || ''
+                publisher: book.publisher || '',
+                // Quarantine information
+                quarantine_reason: book.quarantine_reason || '',
+                quarantine_detail: book.quarantine_detail || '',
+                quarantine_date: book.quarantine_date || ''
             };
             
             // Reset ISBN lookup data
@@ -839,11 +924,93 @@ function fableFlowApp() {
                 fetchedData: null
             };
             
+            // Clear metadata search state when switching books
+            this.metadataSearch = {
+                loading: false,
+                suggestions: [],
+                confidence: 0,
+                searched: false
+            };
+            
             this.currentView = 'edit';
-            this.breadcrumb = [
-                { name: 'Quarantine', action: () => this.showQuarantine() },
-                { name: 'Edit Book', action: null }
-            ];
+            this.breadcrumb = ['Home', 'Admin', 'Quarantine', 'Edit Book'];
+        },
+        
+        // Metadata search functions
+        async searchMetadata() {
+            this.metadataSearch.loading = true;
+            this.metadataSearch.searched = true;
+            
+            try {
+                const response = await fetch('/api/books/search-metadata', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        title: this.editingBook.title,
+                        author: this.editingBook.author
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Search failed');
+                }
+                
+                const data = await response.json();
+                this.metadataSearch.suggestions = data.suggestions || [];
+                this.metadataSearch.confidence = data.confidence || 0;
+                
+                // Auto-suggest if high confidence (>80%) and we have suggestions
+                if (data.confidence > 0.8 && data.suggestions.length > 0) {
+                    this.useSuggestion(data.suggestions[0]);
+                    this.showToast('High confidence match found and applied automatically!');
+                } else if (data.suggestions.length > 0) {
+                    this.showToast(`Found ${data.suggestions.length} suggestions. Please review and choose the best match.`);
+                } else {
+                    this.showToast('No matching books found in Open Library.');
+                }
+                
+            } catch (error) {
+                console.error('Metadata search error:', error);
+                this.showToast('Failed to search for metadata. Please try again.');
+                this.metadataSearch.suggestions = [];
+                this.metadataSearch.confidence = 0;
+            } finally {
+                this.metadataSearch.loading = false;
+            }
+        },
+        
+        useSuggestion(suggestion) {
+            // Update the form with the suggested metadata
+            this.editingBook.title = suggestion.title;
+            this.editingBook.author = suggestion.author;
+            this.editingBook.isbn = suggestion.isbn || '';
+            this.editingBook.publisher = suggestion.publisher || '';
+            
+            // Clear the search results
+            this.metadataSearch.suggestions = [];
+            this.metadataSearch.searched = false;
+            
+            this.showToast('Metadata updated from Open Library');
+        },
+        
+        // Get cover image URL for the current editing book
+        getCoverImage() {
+            // For quarantine books, generate cover filename from file path
+            if (this.editingBook.file_path) {
+                const baseName = this.editingBook.file_path.split('/').pop();
+                const coverName = baseName.replace(/\.epub$/i, '_cover.jpg');
+                return '/api/quarantine/covers/' + coverName + '?t=' + Date.now();
+            }
+            
+            // For regular books with database ID
+            if (this.editingBook.id) {
+                return '/api/covers/' + this.editingBook.id + '?t=' + Date.now();
+            }
+            
+            // Default cover
+            return '/static/default-book.svg';
         }
     }
 }

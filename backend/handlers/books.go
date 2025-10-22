@@ -3,15 +3,22 @@ package handlers
 import (
 	"archive/zip"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
+	"sort"
 	"strconv"
 	"strings"
+	"time"
 
+	"fableflow/backend/config"
 	"fableflow/backend/database"
 	"fableflow/backend/epub"
 	"fableflow/backend/models"
@@ -20,19 +27,12 @@ import (
 // BooksHandler handles book-related HTTP requests
 type BooksHandler struct {
 	db     *database.Manager
-	config *Config
+	config *config.Config
 }
 
-// Config represents the application configuration
-type Config struct {
-	Library struct {
-		ScanDirectory       string `yaml:"scan_directory"`
-		QuarantineDirectory string `yaml:"quarantine_directory"`
-	} `yaml:"library"`
-}
 
 // NewBooksHandler creates a new books handler
-func NewBooksHandler(db *database.Manager, config *Config) *BooksHandler {
+func NewBooksHandler(db *database.Manager, config *config.Config) *BooksHandler {
 	return &BooksHandler{db: db, config: config}
 }
 
@@ -793,9 +793,16 @@ func (h *BooksHandler) GetQuarantineBooks(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// Load quarantine reasons from import logs
+	quarantineReasons, err := h.loadQuarantineReasons()
+	if err != nil {
+		// Log error but don't fail - we can still show books without reasons
+		fmt.Printf("Warning: failed to load quarantine reasons: %v\n", err)
+	}
+
 	// Scan quarantine directory for EPUB files
-	var quarantineBooks []models.Book
-	err := filepath.Walk(quarantineDir, func(path string, info os.FileInfo, err error) error {
+	var quarantineBooks []models.QuarantineBook
+	err = filepath.Walk(quarantineDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil // Skip files we can't access
 		}
@@ -813,15 +820,24 @@ func (h *BooksHandler) GetQuarantineBooks(w http.ResponseWriter, r *http.Request
 		}
 
 		// Create book entry
-		book := models.Book{
-			ID:        0, // No database ID for quarantine books
-			Title:     bookMetadata.Title,
-			Author:    bookMetadata.Author,
-			FilePath:  path,
-			FileSize:  info.Size(),
-			Format:    "epub",
-			ISBN:      bookMetadata.ISBN,
-			Publisher: bookMetadata.Publisher,
+		book := models.QuarantineBook{
+			Book: models.Book{
+				ID:        0, // No database ID for quarantine books
+				Title:     bookMetadata.Title,
+				Author:    bookMetadata.Author,
+				FilePath:  path,
+				FileSize:  info.Size(),
+				Format:    "epub",
+				ISBN:      bookMetadata.ISBN,
+				Publisher: bookMetadata.Publisher,
+			},
+		}
+
+		// Look up quarantine reason for this file
+		if reason, exists := quarantineReasons[path]; exists {
+			book.QuarantineReason = reason.Reason
+			book.QuarantineDetail = reason.ErrorDetail
+			book.QuarantineDate = reason.Timestamp.Format("2006-01-02 15:04:05")
 		}
 
 		quarantineBooks = append(quarantineBooks, book)
@@ -835,6 +851,647 @@ func (h *BooksHandler) GetQuarantineBooks(w http.ResponseWriter, r *http.Request
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(quarantineBooks)
+}
+
+// ServeQuarantineCover serves cover images for quarantine books using the same logic as main library
+func (h *BooksHandler) ServeQuarantineCover(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract file path from URL
+	// URL format: /api/quarantine/covers/{filename}
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < 4 {
+		http.Error(w, "Invalid cover path", http.StatusBadRequest)
+		return
+	}
+
+	filename := pathParts[len(pathParts)-1]
+	
+	// Find the quarantine book by filename
+	var quarantineBook *models.QuarantineBook
+	quarantineDir := h.config.Library.QuarantineDirectory
+	
+	err := filepath.Walk(quarantineDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		
+		if !info.IsDir() && strings.HasSuffix(strings.ToLower(path), ".epub") {
+			// Extract metadata from EPUB
+			bookMetadata, err := h.extractMetadata(path)
+			if err != nil {
+				return nil // Skip files with metadata extraction errors
+			}
+			
+			// Check if this is the book we're looking for
+			baseName := filepath.Base(path)
+			expectedName := strings.TrimSuffix(baseName, filepath.Ext(baseName)) + "_cover.jpg"
+			if filename == expectedName {
+				quarantineBook = &models.QuarantineBook{
+					Book: models.Book{
+						FilePath: path,
+						Title:    bookMetadata.Title,
+						Author:   bookMetadata.Author,
+					},
+				}
+				return filepath.SkipDir // Stop walking
+			}
+		}
+		return nil
+	})
+	
+	if err != nil || quarantineBook == nil {
+		http.Error(w, "Quarantine book not found", http.StatusNotFound)
+		return
+	}
+
+	// Use the same cover extraction logic as the main library
+	reader, err := zip.OpenReader(quarantineBook.FilePath)
+	if err != nil {
+		http.Error(w, "Failed to open EPUB file", http.StatusInternalServerError)
+		return
+	}
+	defer reader.Close()
+
+	// Find cover image using the same logic as CoversHandler
+	coverPath, err := h.findCoverInOPF(reader)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Cover not found: %v", err), http.StatusNotFound)
+		return
+	}
+
+	// Read cover image
+	coverFile, err := reader.Open(coverPath)
+	if err != nil {
+		http.Error(w, "Failed to open cover image", http.StatusInternalServerError)
+		return
+	}
+	defer coverFile.Close()
+
+	// Read image data
+	imageData, err := io.ReadAll(coverFile)
+	if err != nil {
+		http.Error(w, "Failed to read cover image", http.StatusInternalServerError)
+		return
+	}
+
+	// Serve full image (no thumbnail generation for quarantine)
+	contentType := http.DetectContentType(imageData)
+	w.Header().Set("Content-Type", contentType)
+	w.Write(imageData)
+}
+
+// findCoverInOPF finds the cover image path in the OPF file using XML parsing
+// This is a copy of the logic from CoversHandler to avoid circular dependencies
+func (h *BooksHandler) findCoverInOPF(reader *zip.ReadCloser) (string, error) {
+	// Find the OPF file
+	var opfPath string
+	for _, file := range reader.File {
+		if strings.HasSuffix(file.Name, ".opf") {
+			opfPath = file.Name
+			break
+		}
+	}
+
+	if opfPath == "" {
+		return "", fmt.Errorf("no OPF file found")
+	}
+
+	// Read and parse the OPF file
+	opfFile, err := reader.Open(opfPath)
+	if err != nil {
+		return "", err
+	}
+	defer opfFile.Close()
+
+	// Parse XML using Go's standard library
+	opfData, err := io.ReadAll(opfFile)
+	if err != nil {
+		return "", err
+	}
+
+	// Define OPF structures locally to avoid conflicts
+	type OPFDocument struct {
+		XMLName  xml.Name `xml:"package"`
+		Metadata struct {
+			Meta []MetaTag `xml:"meta"`
+		} `xml:"metadata"`
+		Manifest struct {
+			Items []ManifestItem `xml:"item"`
+		} `xml:"manifest"`
+	}
+
+	type MetaTag struct {
+		Name    string `xml:"name,attr"`
+		Content string `xml:"content,attr"`
+	}
+
+	type ManifestItem struct {
+		ID   string `xml:"id,attr"`
+		Href string `xml:"href,attr"`
+	}
+
+	var opf OPFDocument
+	if err := xml.Unmarshal(opfData, &opf); err != nil {
+		return "", fmt.Errorf("failed to parse OPF XML: %v", err)
+	}
+
+	// Step 1: Find cover metadata
+	var coverID string
+	for _, meta := range opf.Metadata.Meta {
+		if meta.Name == "cover" {
+			coverID = meta.Content
+			fmt.Printf("Found cover metadata: <meta name=\"cover\" content=\"%s\"/>\n", coverID)
+			break
+		}
+	}
+
+	if coverID == "" {
+		// Fallback: look for direct cover references in manifest
+		for _, item := range opf.Manifest.Items {
+			if item.ID == "cover" || strings.Contains(item.ID, "cover") {
+				fmt.Printf("Found direct cover reference: %s\n", item.Href)
+				// Make path relative to OPF file location
+				opfDir := filepath.Dir(opfPath)
+				if opfDir != "." {
+					return filepath.Join(opfDir, item.Href), nil
+				}
+				return item.Href, nil
+			}
+		}
+		return "", fmt.Errorf("no cover metadata found in OPF")
+	}
+
+	// Step 2: Find manifest item by cover ID
+	var coverPath string
+	for _, item := range opf.Manifest.Items {
+		if item.ID == coverID {
+			coverPath = item.Href
+			fmt.Printf("Found cover image in manifest: %s\n", coverPath)
+			break
+		}
+	}
+
+	if coverPath == "" {
+		return "", fmt.Errorf("cover ID '%s' not found in manifest", coverID)
+	}
+
+	// Step 3: Make path relative to OPF file location
+	opfDir := filepath.Dir(opfPath)
+	if opfDir != "." {
+		coverPath = filepath.Join(opfDir, coverPath)
+	}
+
+	fmt.Printf("Resolved cover path: %s\n", coverPath)
+	return coverPath, nil
+}
+
+// SearchMetadata searches for book metadata using Open Library API
+func (h *BooksHandler) SearchMetadata(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("🚀 SearchMetadata API called\n")
+
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var searchRequest models.MetadataSearchRequest
+	if err := json.NewDecoder(r.Body).Decode(&searchRequest); err != nil {
+		fmt.Printf("❌ JSON Decode Error: %v\n", err)
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	fmt.Printf("📝 Search Request:\n")
+	fmt.Printf("   Title: '%s'\n", searchRequest.Title)
+	fmt.Printf("   Author: '%s'\n", searchRequest.Author)
+
+	// Validate required fields
+	if searchRequest.Title == "" {
+		fmt.Printf("❌ Validation Error: Title is required\n")
+		http.Error(w, "Title is required", http.StatusBadRequest)
+		return
+	}
+
+	// Search Open Library
+	fmt.Printf("🔍 Starting Open Library search...\n")
+	suggestions, confidence, err := h.searchOpenLibrary(searchRequest.Title, searchRequest.Author)
+	if err != nil {
+		fmt.Printf("❌ Search Error: %v\n", err)
+		http.Error(w, fmt.Sprintf("Failed to search metadata: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	response := models.MetadataSearchResponse{
+		Suggestions: suggestions,
+		Confidence:  confidence,
+	}
+
+	if len(suggestions) == 0 {
+		response.Message = "No matching books found in Open Library"
+		fmt.Printf("⚠️ No suggestions found\n")
+	} else {
+		fmt.Printf("✅ Returning %d suggestions with confidence %.2f\n", len(suggestions), confidence)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// normalizeSearchText cleans and normalizes text for search
+func (h *BooksHandler) normalizeSearchText(text string) string {
+	// Convert to lowercase
+	text = strings.ToLower(text)
+
+	// Remove special characters, keep only letters and spaces
+	re := regexp.MustCompile(`[^a-z\s]`)
+	text = re.ReplaceAllString(text, " ")
+
+	// Remove extra spaces
+	re = regexp.MustCompile(`\s+`)
+	text = re.ReplaceAllString(text, " ")
+
+	return strings.TrimSpace(text)
+}
+
+// searchOpenLibrary searches for books using Open Library API
+func (h *BooksHandler) searchOpenLibrary(title, author string) ([]models.MetadataSuggestion, float64, error) {
+	// Normalize and combine search terms
+	searchQuery := h.normalizeSearchText(title)
+	if author != "" {
+		searchQuery += " " + h.normalizeSearchText(author)
+	}
+
+	// Build URL with generic q parameter
+	baseURL := "https://openlibrary.org/search.json"
+	searchURL := fmt.Sprintf("%s?q=%s", baseURL, url.QueryEscape(searchQuery))
+
+	// Debug logging
+	fmt.Printf("🔍 Open Library Search Request:\n")
+	fmt.Printf("   Original Title: '%s'\n", title)
+	fmt.Printf("   Original Author: '%s'\n", author)
+	fmt.Printf("   Normalized Query: '%s'\n", searchQuery)
+	fmt.Printf("   URL: %s\n", searchURL)
+
+	// Show normalization examples for debugging
+	fmt.Printf("   📝 Normalization Examples:\n")
+	fmt.Printf("      Title: '%s' -> '%s'\n", title, h.normalizeSearchText(title))
+	if author != "" {
+		fmt.Printf("      Author: '%s' -> '%s'\n", author, h.normalizeSearchText(author))
+	}
+
+	// Make HTTP request
+	resp, err := http.Get(searchURL)
+	if err != nil {
+		fmt.Printf("❌ HTTP Request Error: %v\n", err)
+		return nil, 0, fmt.Errorf("failed to query Open Library: %v", err)
+	}
+	defer resp.Body.Close()
+
+	fmt.Printf("📡 Open Library Response Status: %d\n", resp.StatusCode)
+
+	if resp.StatusCode != http.StatusOK {
+		// Read response body for error details
+		body, _ := io.ReadAll(resp.Body)
+		fmt.Printf("❌ Open Library Error Response: %s\n", string(body))
+		return nil, 0, fmt.Errorf("Open Library API returned status %d", resp.StatusCode)
+	}
+
+	// Parse response
+	var searchResponse struct {
+		Docs []struct {
+			Title            string   `json:"title"`
+			AuthorName       []string `json:"author_name"`
+			FirstPublishYear int      `json:"first_publish_year"`
+			Key              string   `json:"key"`
+			ISBN             []string `json:"isbn"`
+			Publisher        []string `json:"publisher"`
+		} `json:"docs"`
+	}
+
+	// Read response body for debugging
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Printf("❌ Failed to read response body: %v\n", err)
+		return nil, 0, fmt.Errorf("failed to read Open Library response: %v", err)
+	}
+
+	// Show first 500 characters of response
+	bodyPreview := body
+	if len(body) > 500 {
+		bodyPreview = body[:500]
+	}
+	fmt.Printf("📄 Open Library Response Body (first 500 chars):\n%s\n", string(bodyPreview))
+
+	if err := json.Unmarshal(body, &searchResponse); err != nil {
+		fmt.Printf("❌ JSON Parse Error: %v\n", err)
+		fmt.Printf("❌ Raw Response: %s\n", string(body))
+		return nil, 0, fmt.Errorf("failed to parse Open Library response: %v", err)
+	}
+
+	fmt.Printf("📚 Found %d documents in Open Library response\n", len(searchResponse.Docs))
+
+	// Process results and calculate confidence scores
+	var suggestions []models.MetadataSuggestion
+	var totalConfidence float64
+
+	for i, doc := range searchResponse.Docs {
+		fmt.Printf("📖 Processing document %d:\n", i+1)
+		fmt.Printf("   Title: '%s'\n", doc.Title)
+		fmt.Printf("   Authors: %v\n", doc.AuthorName)
+		fmt.Printf("   Year: %d\n", doc.FirstPublishYear)
+		fmt.Printf("   Key: %s\n", doc.Key)
+
+		if doc.Title == "" {
+			fmt.Printf("   ⚠️ Skipping - no title\n")
+			continue
+		}
+
+		// Get detailed information for this work
+		fmt.Printf("   🔍 Fetching work details from: %s\n", doc.Key)
+		workDetails, err := h.getWorkDetails(doc.Key)
+		if err != nil {
+			fmt.Printf("   ❌ Failed to get work details: %v\n", err)
+			continue // Skip if we can't get details
+		}
+
+		fmt.Printf("   📋 Work details - ISBN: %v, Publisher: %v\n", workDetails.ISBN, workDetails.Publisher)
+
+		// Calculate confidence score
+		confidence := h.calculateConfidence(title, author, doc.Title, doc.AuthorName, workDetails)
+		fmt.Printf("   🎯 Confidence score: %.2f\n", confidence)
+
+		// Only include suggestions with reasonable confidence
+		if confidence > 0.3 {
+			suggestion := models.MetadataSuggestion{
+				Title:      doc.Title,
+				Author:     strings.Join(doc.AuthorName, ", "),
+				ISBN:       h.extractBestISBN(workDetails.ISBN),
+				Publisher:  h.extractBestPublisher(workDetails.Publisher),
+				Year:       doc.FirstPublishYear,
+				Confidence: confidence,
+				Source:     "Open Library",
+			}
+			suggestions = append(suggestions, suggestion)
+			totalConfidence += confidence
+			fmt.Printf("   ✅ Added to suggestions\n")
+		} else {
+			fmt.Printf("   ⚠️ Skipping - confidence too low (%.2f < 0.3)\n", confidence)
+		}
+	}
+
+	// Sort by confidence (highest first)
+	sort.Slice(suggestions, func(i, j int) bool {
+		return suggestions[i].Confidence > suggestions[j].Confidence
+	})
+
+	// Limit to top 5 suggestions
+	if len(suggestions) > 5 {
+		suggestions = suggestions[:5]
+	}
+
+	// Calculate average confidence
+	avgConfidence := 0.0
+	if len(suggestions) > 0 {
+		avgConfidence = totalConfidence / float64(len(suggestions))
+	}
+
+	fmt.Printf("🎯 Final Results:\n")
+	fmt.Printf("   Total suggestions: %d\n", len(suggestions))
+	fmt.Printf("   Average confidence: %.2f\n", avgConfidence)
+	for i, suggestion := range suggestions {
+		fmt.Printf("   Suggestion %d: '%s' by %s (confidence: %.2f)\n",
+			i+1, suggestion.Title, suggestion.Author, suggestion.Confidence)
+	}
+
+	return suggestions, avgConfidence, nil
+}
+
+// WorkDetails represents detailed work information from Open Library
+type WorkDetails struct {
+	ISBN      []string `json:"isbn"`
+	Publisher []string `json:"publisher"`
+}
+
+// getWorkDetails fetches detailed information for a work
+func (h *BooksHandler) getWorkDetails(workKey string) (*WorkDetails, error) {
+	workURL := "https://openlibrary.org" + workKey + ".json"
+
+	fmt.Printf("      🔗 Fetching work details from: %s\n", workURL)
+
+	resp, err := http.Get(workURL)
+	if err != nil {
+		fmt.Printf("      ❌ HTTP Error: %v\n", err)
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	fmt.Printf("      📡 Work API Status: %d\n", resp.StatusCode)
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		fmt.Printf("      ❌ Work API Error Response: %s\n", string(body))
+		return nil, fmt.Errorf("work API returned status %d", resp.StatusCode)
+	}
+
+	// Read and parse response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Printf("      ❌ Failed to read work response: %v\n", err)
+		return nil, err
+	}
+
+	var details WorkDetails
+	if err := json.Unmarshal(body, &details); err != nil {
+		fmt.Printf("      ❌ Failed to parse work response: %v\n", err)
+		// Show first 200 characters
+		bodyPreview := body
+		if len(body) > 200 {
+			bodyPreview = body[:200]
+		}
+		fmt.Printf("      📄 Work response (first 200 chars): %s\n", string(bodyPreview))
+		return nil, err
+	}
+
+	fmt.Printf("      ✅ Work details parsed successfully\n")
+	return &details, nil
+}
+
+// calculateConfidence calculates how confident we are in a match
+func (h *BooksHandler) calculateConfidence(searchTitle, searchAuthor, resultTitle string, resultAuthors []string, details *WorkDetails) float64 {
+	confidence := 0.0
+
+	// Title matching (50% weight) - more important with generic search
+	titleScore := h.calculateStringSimilarity(searchTitle, resultTitle)
+	confidence += titleScore * 0.5
+
+	// Author matching (30% weight)
+	if searchAuthor != "" && len(resultAuthors) > 0 {
+		authorScore := 0.0
+		for _, author := range resultAuthors {
+			similarity := h.calculateStringSimilarity(searchAuthor, author)
+			if similarity > authorScore {
+				authorScore = similarity
+			}
+		}
+		confidence += authorScore * 0.3
+	}
+
+	// Data completeness (20% weight)
+	completenessScore := 0.0
+	if len(details.ISBN) > 0 {
+		completenessScore += 0.3
+	}
+	if len(details.Publisher) > 0 {
+		completenessScore += 0.2
+	}
+	confidence += completenessScore * 0.2
+
+	return confidence
+}
+
+// calculateStringSimilarity calculates similarity between two strings (0.0 to 1.0)
+func (h *BooksHandler) calculateStringSimilarity(s1, s2 string) float64 {
+	// Normalize both strings for comparison
+	s1 = h.normalizeSearchText(s1)
+	s2 = h.normalizeSearchText(s2)
+
+	if s1 == s2 {
+		return 1.0
+	}
+
+	// Simple similarity based on common words
+	words1 := strings.Fields(s1)
+	words2 := strings.Fields(s2)
+
+	commonWords := 0
+	for _, word1 := range words1 {
+		for _, word2 := range words2 {
+			if word1 == word2 {
+				commonWords++
+				break
+			}
+		}
+	}
+
+	if len(words1) == 0 || len(words2) == 0 {
+		return 0.0
+	}
+
+	// Calculate similarity as ratio of common words to total unique words
+	totalWords := len(words1) + len(words2) - commonWords
+	if totalWords == 0 {
+		return 0.0
+	}
+
+	return float64(commonWords) / float64(totalWords)
+}
+
+// extractBestISBN extracts the best ISBN from a list
+func (h *BooksHandler) extractBestISBN(isbns []string) string {
+	if len(isbns) == 0 {
+		return ""
+	}
+
+	// Prefer ISBN-13 over ISBN-10
+	for _, isbn := range isbns {
+		if len(isbn) == 13 {
+			return isbn
+		}
+	}
+
+	// Fallback to first ISBN
+	return isbns[0]
+}
+
+// extractBestPublisher extracts the best publisher from a list
+func (h *BooksHandler) extractBestPublisher(publishers []string) string {
+	if len(publishers) == 0 {
+		return ""
+	}
+	return publishers[0]
+}
+
+// max returns the maximum of two integers
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+// loadQuarantineReasons loads quarantine reasons from import logs
+func (h *BooksHandler) loadQuarantineReasons() (map[string]QuarantineReason, error) {
+	quarantineReasons := make(map[string]QuarantineReason)
+
+	// Get log directory from config
+	logDir := h.config.LogDir
+	if logDir == "" {
+		return quarantineReasons, nil // No log directory configured
+	}
+
+	// Read all log files
+	files, err := ioutil.ReadDir(logDir)
+	if err != nil {
+		return quarantineReasons, err
+	}
+
+	// Process log files in reverse chronological order (newest first)
+	for _, file := range files {
+		if filepath.Ext(file.Name()) == ".json" {
+			logPath := filepath.Join(logDir, file.Name())
+			data, err := ioutil.ReadFile(logPath)
+			if err != nil {
+				continue // Skip corrupted files
+			}
+
+			// Parse the log file to extract quarantined books
+			var logData map[string]interface{}
+			if err := json.Unmarshal(data, &logData); err != nil {
+				continue // Skip invalid JSON
+			}
+
+			// Check if this log has quarantined books
+			if quarantinedBooks, exists := logData["quarantined_books"]; exists {
+				if books, ok := quarantinedBooks.([]interface{}); ok {
+					for _, book := range books {
+						if bookMap, ok := book.(map[string]interface{}); ok {
+							quarantinePath, _ := bookMap["quarantine_path"].(string)
+							reason, _ := bookMap["reason"].(string)
+							errorDetail, _ := bookMap["error_detail"].(string)
+							timestampStr, _ := bookMap["timestamp"].(string)
+
+							if quarantinePath != "" && reason != "" {
+								// Parse timestamp
+								timestamp, _ := time.Parse(time.RFC3339, timestampStr)
+
+								// Only add if we don't already have a reason for this file
+								if _, exists := quarantineReasons[quarantinePath]; !exists {
+									quarantineReasons[quarantinePath] = QuarantineReason{
+										Reason:      reason,
+										ErrorDetail: errorDetail,
+										Timestamp:   timestamp,
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return quarantineReasons, nil
+}
+
+// QuarantineReason represents quarantine information for a book
+type QuarantineReason struct {
+	Reason      string    `json:"reason"`
+	ErrorDetail string    `json:"error_detail"`
+	Timestamp   time.Time `json:"timestamp"`
 }
 
 // extractMetadata extracts metadata from an EPUB file

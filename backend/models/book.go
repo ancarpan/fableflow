@@ -27,6 +27,14 @@ type BookRequest struct {
 	Publisher string `json:"publisher"`
 }
 
+// QuarantineBook represents a book in quarantine with additional quarantine information
+type QuarantineBook struct {
+	Book
+	QuarantineReason string `json:"quarantine_reason,omitempty"`
+	QuarantineDetail string `json:"quarantine_detail,omitempty"`
+	QuarantineDate   string `json:"quarantine_date,omitempty"`
+}
+
 // ScanRequest represents a request to scan a directory
 type ScanRequest struct {
 	Path string `json:"path"`
@@ -43,4 +51,28 @@ type ScanResponse struct {
 type ErrorResponse struct {
 	Error   string `json:"error"`
 	Message string `json:"message,omitempty"`
+}
+
+// MetadataSearchRequest represents a request to search for book metadata
+type MetadataSearchRequest struct {
+	Title  string `json:"title"`
+	Author string `json:"author"`
+}
+
+// MetadataSearchResponse represents the response from metadata search
+type MetadataSearchResponse struct {
+	Suggestions []MetadataSuggestion `json:"suggestions"`
+	Confidence  float64              `json:"confidence"`
+	Message     string               `json:"message,omitempty"`
+}
+
+// MetadataSuggestion represents a suggested metadata from external source
+type MetadataSuggestion struct {
+	Title      string  `json:"title"`
+	Author     string  `json:"author"`
+	ISBN       string  `json:"isbn"`
+	Publisher  string  `json:"publisher"`
+	Year       int     `json:"year"`
+	Confidence float64 `json:"confidence"`
+	Source     string  `json:"source"`
 }
