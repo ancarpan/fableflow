@@ -15,13 +15,21 @@ Fableflow is a small experiment. 95+% vibe coded. Including this README. Except 
 
 ## Quick Start
 
+### Using Pre-built Image (Recommended)
 ```bash
-# Start with Docker
+# Pull and run from GitHub Container Registry
+docker pull ghcr.io/ancarpan/fableflow:latest
 make run
 
 # Access the application
 # Frontend: http://localhost:3000
 # Backend API: http://localhost:8080
+```
+
+### Building Locally
+```bash
+# Build and run locally
+make run
 ```
 
 ## Commands
@@ -37,6 +45,12 @@ make run
 - **Frontend**: Static web interface (port 3000)
 - **Database**: SQLite
 - **Storage**: Local file system
+
+## Docker Images
+
+Pre-built images are available on GitHub Container Registry:
+- `ghcr.io/ancarpan/fableflow:latest` - Latest from main branch
+- `ghcr.io/ancarpan/fableflow:v1.0.0` - Tagged releases
 
 ## Configuration
 
