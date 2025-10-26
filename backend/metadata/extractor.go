@@ -2,33 +2,16 @@ package metadata
 
 import (
 	"archive/zip"
-	"encoding/xml"
 	"fmt"
-	"io"
 	"log"
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"fableflow/backend/conversion"
 )
 
-// OPF represents the structure of an EPUB OPF file
-type OPF struct {
-	XMLName  xml.Name `xml:"package"`
-	Metadata Metadata `xml:"metadata"`
-}
-
-// Metadata represents the metadata section of an OPF file
-type Metadata struct {
-	Title       []string `xml:"title"`
-	Creator     []string `xml:"creator"`
-	Publisher   []string `xml:"publisher"`
-	Language    []string `xml:"language"`
-	Description []string `xml:"description"`
-	Identifier  []string `xml:"identifier"`
-	Date        []string `xml:"date"`
-	Subject     []string `xml:"subject"`
-	Rights      []string `xml:"rights"`
-}
+// Note: OPF and Metadata types are now imported from conversion package
 
 // BookMetadata represents extracted book metadata
 type BookMetadata struct {
@@ -65,7 +48,7 @@ func (e *Extractor) ExtractMetadata(filePath string) (*BookMetadata, error) {
 	}
 }
 
-// extractEPUBMetadata extracts metadata from EPUB files
+// extractEPUBMetadata extracts metadata from EPUB files using smart OPF finding
 func (e *Extractor) extractEPUBMetadata(filePath string) (*BookMetadata, error) {
 	// EPUB files are ZIP archives
 	reader, err := zip.OpenReader(filePath)
@@ -74,84 +57,26 @@ func (e *Extractor) extractEPUBMetadata(filePath string) (*BookMetadata, error) 
 	}
 	defer reader.Close()
 
-	// Look for content.opf file
-	var opfFile *zip.File
-	for _, file := range reader.File {
-		if strings.HasSuffix(file.Name, "content.opf") {
-			opfFile = file
-			break
-		}
-	}
-
-	if opfFile == nil {
-		return nil, fmt.Errorf("content.opf not found in EPUB")
-	}
-
-	// Read the OPF file
-	rc, err := opfFile.Open()
+	// Use smart OPF finding logic from conversion package
+	parser := conversion.NewEPUBParser()
+	opfFile, err := parser.FindOPFFile(reader)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open content.opf: %v", err)
+		return nil, fmt.Errorf("failed to find OPF file: %v", err)
 	}
-	defer rc.Close()
 
-	content, err := io.ReadAll(rc)
+	// Parse the OPF file using conversion package
+	opf, err := parser.ParseOPF(opfFile)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read content.opf: %v", err)
+		return nil, fmt.Errorf("failed to parse OPF file: %v", err)
 	}
 
-	// Parse the OPF XML
-	var opf OPF
-	err = xml.Unmarshal(content, &opf)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse OPF XML: %v", err)
-	}
-
-	metadata := &BookMetadata{}
-
-	// Extract metadata from OPF
-	if len(opf.Metadata.Title) > 0 {
-		metadata.Title = strings.TrimSpace(opf.Metadata.Title[0])
-	}
-	if len(opf.Metadata.Creator) > 0 {
-		metadata.Author = strings.TrimSpace(opf.Metadata.Creator[0])
-	}
-	if len(opf.Metadata.Publisher) > 0 {
-		metadata.Publisher = strings.TrimSpace(opf.Metadata.Publisher[0])
-	}
-	if len(opf.Metadata.Language) > 0 {
-		metadata.Language = strings.TrimSpace(opf.Metadata.Language[0])
-	}
-	if len(opf.Metadata.Description) > 0 {
-		metadata.Description = strings.TrimSpace(opf.Metadata.Description[0])
-	}
-	// Look for ISBN in identifiers (skip UUIDs and other non-ISBN identifiers)
-	for _, identifier := range opf.Metadata.Identifier {
-		cleanID := strings.TrimSpace(identifier)
-		// Check if it looks like an ISBN (contains numbers and hyphens, or is 10/13 digits)
-		if isISBN(cleanID) {
-			metadata.ISBN = cleanID
-			break
-		}
-	}
-	if len(opf.Metadata.Date) > 0 {
-		metadata.Date = strings.TrimSpace(opf.Metadata.Date[0])
-	}
-	if len(opf.Metadata.Subject) > 0 {
-		metadata.Subject = strings.TrimSpace(opf.Metadata.Subject[0])
-	}
-	if len(opf.Metadata.Rights) > 0 {
-		metadata.Rights = strings.TrimSpace(opf.Metadata.Rights[0])
-	}
+	// Convert to BookMetadata format
+	metadata := e.convertOPFToBookMetadata(opf)
 
 	// Fallback to filename if no title found
 	if metadata.Title == "" {
 		filename := filepath.Base(filePath)
 		metadata.Title = strings.TrimSuffix(filename, filepath.Ext(filename))
-	}
-
-	// Fallback to "Unknown" if no author found
-	if metadata.Author == "" {
-		metadata.Author = "Unknown"
 	}
 
 	log.Printf("Extracted EPUB metadata - Title: %s, Author: %s", metadata.Title, metadata.Author)
@@ -192,6 +117,44 @@ func (e *Extractor) ExtractFromFilename(filePath string) *BookMetadata {
 				metadata.Author = strings.TrimSpace(parts[1])
 			}
 		}
+	}
+
+	return metadata
+}
+
+// convertOPFToBookMetadata converts conversion package OPF to BookMetadata
+func (e *Extractor) convertOPFToBookMetadata(opf *conversion.OPF) *BookMetadata {
+	metadata := &BookMetadata{}
+
+	// Extract metadata from OPF
+	if len(opf.Metadata.Title) > 0 {
+		metadata.Title = strings.TrimSpace(opf.Metadata.Title[0])
+	}
+	if len(opf.Metadata.Creator) > 0 {
+		metadata.Author = strings.TrimSpace(opf.Metadata.Creator[0])
+	}
+	if len(opf.Metadata.Publisher) > 0 {
+		metadata.Publisher = strings.TrimSpace(opf.Metadata.Publisher[0])
+	}
+	if len(opf.Metadata.Language) > 0 {
+		metadata.Language = strings.TrimSpace(opf.Metadata.Language[0])
+	}
+	if len(opf.Metadata.Description) > 0 {
+		metadata.Description = strings.TrimSpace(opf.Metadata.Description[0])
+	}
+	if len(opf.Metadata.Date) > 0 {
+		metadata.Date = strings.TrimSpace(opf.Metadata.Date[0])
+	}
+	if len(opf.Metadata.Subject) > 0 {
+		metadata.Subject = strings.TrimSpace(opf.Metadata.Subject[0])
+	}
+	if len(opf.Metadata.Rights) > 0 {
+		metadata.Rights = strings.TrimSpace(opf.Metadata.Rights[0])
+	}
+
+	// Fallback to "Unknown" if no author found
+	if metadata.Author == "" {
+		metadata.Author = "Unknown"
 	}
 
 	return metadata
