@@ -94,14 +94,14 @@ func (p *EPUBParser) ParseEPUB(filePath string) (*EPUBBook, error) {
 	}
 
 	// Find and parse the OPF file
-	opfFile, err := p.findOPFFile(reader)
+	opfFile, err := p.FindOPFFile(reader)
 	if err != nil {
 		fmt.Printf("Warning: Could not find OPF file: %v\n", err)
 		// Fallback to filename-based metadata
 		p.extractMetadataFromFilename(filePath, book)
 	} else {
 		// Parse OPF content
-		opf, err := p.parseOPF(opfFile)
+		opf, err := p.ParseOPF(opfFile)
 		if err != nil {
 			fmt.Printf("Warning: Could not parse OPF file: %v\n", err)
 			// Fallback to filename-based metadata
@@ -117,7 +117,7 @@ func (p *EPUBParser) ParseEPUB(filePath string) (*EPUBBook, error) {
 
 	// Extract content - try OPF-based extraction first, then fallback
 	if opfFile != nil {
-		opf, err := p.parseOPF(opfFile)
+		opf, err := p.ParseOPF(opfFile)
 		if err == nil {
 			err = p.extractContent(reader, opf, book)
 			if err != nil {
@@ -137,8 +137,8 @@ func (p *EPUBParser) ParseEPUB(filePath string) (*EPUBBook, error) {
 	return book, nil
 }
 
-// findOPFFile locates the OPF file in the EPUB
-func (p *EPUBParser) findOPFFile(reader *zip.ReadCloser) (*zip.File, error) {
+// FindOPFFile locates the OPF file in the EPUB (public method for reuse)
+func (p *EPUBParser) FindOPFFile(reader *zip.ReadCloser) (*zip.File, error) {
 	// First, try to find META-INF/container.xml to locate the OPF file
 	containerFile, err := p.findContainerFile(reader)
 	if err == nil {
@@ -228,8 +228,8 @@ func (p *EPUBParser) parseContainerFile(containerFile *zip.File) (string, error)
 	return rootfileElement[fullPathStart : fullPathStart+fullPathEnd], nil
 }
 
-// parseOPF parses the OPF XML content
-func (p *EPUBParser) parseOPF(opfFile *zip.File) (*OPF, error) {
+// ParseOPF parses the OPF XML content (public method for reuse)
+func (p *EPUBParser) ParseOPF(opfFile *zip.File) (*OPF, error) {
 	rc, err := opfFile.Open()
 	if err != nil {
 		return nil, fmt.Errorf("failed to open OPF file: %v", err)
@@ -450,9 +450,9 @@ func (p *EPUBParser) extractMetadataFromFilename(filePath string, book *EPUBBook
 // extractCoverImage extracts the cover image from the EPUB
 func (p *EPUBParser) extractCoverImage(reader *zip.ReadCloser, book *EPUBBook) {
 	// First, try to find cover from OPF metadata
-	opfFile, err := p.findOPFFile(reader)
+	opfFile, err := p.FindOPFFile(reader)
 	if err == nil {
-		opf, err := p.parseOPF(opfFile)
+		opf, err := p.ParseOPF(opfFile)
 		if err == nil {
 			// Look for cover metadata in OPF
 			for _, item := range opf.Manifest.Items {

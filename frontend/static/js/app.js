@@ -199,20 +199,48 @@ function fableFlowApp() {
 
         // Search functionality
         async performSearch() {
-            if (!this.searchQuery.trim()) return;
+            if (!this.searchQuery.trim()) {
+                // If no search query, show all books
+                console.log('No search query, showing all books');
+                this.currentView = 'search';
+                this.breadcrumb = ['Home', 'All Books'];
+                this.loading = true;
+                
+                try {
+                    const response = await fetch('/api/search');
+                    if (!response.ok) throw new Error('Failed to load books');
+                    
+                    const results = await response.json();
+                    console.log('All books results:', results);
+                    this.searchResults = Array.isArray(results) ? results : [];
+                } catch (error) {
+                    console.error('Error loading all books:', error);
+                    this.showToast('Failed to load books');
+                    this.searchResults = [];
+                } finally {
+                    this.loading = false;
+                }
+                return;
+            }
             
+            console.log('Performing search for:', this.searchQuery);
             this.loading = true;
             this.currentView = 'search';
-            this.breadcrumb = [];
-            this.addToBreadcrumb(`Search: "${this.searchQuery}"`, 'search');
+            this.breadcrumb = ['Home', `Search: "${this.searchQuery}"`];
             
             try {
-                const response = await fetch(`/api/search?q=${encodeURIComponent(this.searchQuery)}`);
+                const url = `/api/search?q=${encodeURIComponent(this.searchQuery)}`;
+                console.log('Search URL:', url);
+                const response = await fetch(url);
+                console.log('Search response status:', response.status);
+                
                 if (!response.ok) throw new Error('Search failed');
                 
                 const results = await response.json();
+                console.log('Search results:', results);
                 // Ensure we have a valid array
                 this.searchResults = Array.isArray(results) ? results : [];
+                console.log('Processed search results:', this.searchResults);
             } catch (error) {
                 console.error('Search error:', error);
                 this.showToast('Search failed. Please try again.');
@@ -537,9 +565,9 @@ function fableFlowApp() {
         // Show library info page
         showLibraryInfo() {
             this.currentView = 'library-info';
-            this.breadcrumb = [
-                { name: 'Library Info', action: null }
-            ];
+            this.breadcrumb = ['Home', 'Library Info'];
+            console.log('Library Info breadcrumb set to:', this.breadcrumb);
+            console.log('Breadcrumb type:', typeof this.breadcrumb, 'Is array:', Array.isArray(this.breadcrumb));
             // Load library statistics
             this.loadLibraryStats();
         },

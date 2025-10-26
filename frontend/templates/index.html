@@ -812,16 +812,25 @@
                                 </div>
                                 
                                 <template x-for="(suggestion, index) in metadataSearch.suggestions" :key="index">
-                                    <div class="p-3 bg-white dark:bg-gray-800 rounded border mb-2 hover:bg-gray-50 dark:hover:bg-gray-700">
+                                    <div class="p-3 bg-white dark:bg-gray-800 rounded border mb-2 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                         :class="suggestion.confidence < 0.3 ? 'border-orange-300 bg-orange-50 dark:bg-orange-900/20' : ''">
                                         <div class="flex justify-between items-start">
                                             <div class="flex-1">
-                                                <p class="font-medium text-gray-900 dark:text-white" x-text="suggestion.title"></p>
+                                                <div class="flex items-center gap-2 mb-1">
+                                                    <p class="font-medium text-gray-900 dark:text-white" x-text="suggestion.title"></p>
+                                                    <span x-show="suggestion.confidence < 0.3" 
+                                                          class="px-2 py-1 text-xs bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200 rounded">
+                                                        Low Confidence
+                                                    </span>
+                                                </div>
                                                 <p class="text-sm text-gray-600 dark:text-gray-300" x-text="suggestion.author"></p>
                                                 <div class="flex items-center space-x-4 mt-1 text-xs text-gray-500 dark:text-gray-400">
                                                     <span x-show="suggestion.isbn">ISBN: <span x-text="suggestion.isbn"></span></span>
                                                     <span x-show="suggestion.publisher">Publisher: <span x-text="suggestion.publisher"></span></span>
                                                     <span x-show="suggestion.year">Year: <span x-text="suggestion.year"></span></span>
-                                                    <span class="text-blue-600">Confidence: <span x-text="Math.round(suggestion.confidence * 100)"></span>%</span>
+                                                    <span :class="suggestion.confidence < 0.3 ? 'text-orange-600' : 'text-blue-600'">
+                                                        Confidence: <span x-text="Math.round(suggestion.confidence * 100)"></span>%
+                                                    </span>
                                                 </div>
                                             </div>
                                             <button @click="useSuggestion(suggestion)" 

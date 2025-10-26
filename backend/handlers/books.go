@@ -30,7 +30,6 @@ type BooksHandler struct {
 	config *config.Config
 }
 
-
 // NewBooksHandler creates a new books handler
 func NewBooksHandler(db *database.Manager, config *config.Config) *BooksHandler {
 	return &BooksHandler{db: db, config: config}
@@ -869,23 +868,23 @@ func (h *BooksHandler) ServeQuarantineCover(w http.ResponseWriter, r *http.Reque
 	}
 
 	filename := pathParts[len(pathParts)-1]
-	
+
 	// Find the quarantine book by filename
 	var quarantineBook *models.QuarantineBook
 	quarantineDir := h.config.Library.QuarantineDirectory
-	
+
 	err := filepath.Walk(quarantineDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		
+
 		if !info.IsDir() && strings.HasSuffix(strings.ToLower(path), ".epub") {
 			// Extract metadata from EPUB
 			bookMetadata, err := h.extractMetadata(path)
 			if err != nil {
 				return nil // Skip files with metadata extraction errors
 			}
-			
+
 			// Check if this is the book we're looking for
 			baseName := filepath.Base(path)
 			expectedName := strings.TrimSuffix(baseName, filepath.Ext(baseName)) + "_cover.jpg"
@@ -902,7 +901,7 @@ func (h *BooksHandler) ServeQuarantineCover(w http.ResponseWriter, r *http.Reque
 		}
 		return nil
 	})
-	
+
 	if err != nil || quarantineBook == nil {
 		http.Error(w, "Quarantine book not found", http.StatusNotFound)
 		return
@@ -1224,23 +1223,19 @@ func (h *BooksHandler) searchOpenLibrary(title, author string) ([]models.Metadat
 		confidence := h.calculateConfidence(title, author, doc.Title, doc.AuthorName, workDetails)
 		fmt.Printf("   🎯 Confidence score: %.2f\n", confidence)
 
-		// Only include suggestions with reasonable confidence
-		if confidence > 0.3 {
-			suggestion := models.MetadataSuggestion{
-				Title:      doc.Title,
-				Author:     strings.Join(doc.AuthorName, ", "),
-				ISBN:       h.extractBestISBN(workDetails.ISBN),
-				Publisher:  h.extractBestPublisher(workDetails.Publisher),
-				Year:       doc.FirstPublishYear,
-				Confidence: confidence,
-				Source:     "Open Library",
-			}
-			suggestions = append(suggestions, suggestion)
-			totalConfidence += confidence
-			fmt.Printf("   ✅ Added to suggestions\n")
-		} else {
-			fmt.Printf("   ⚠️ Skipping - confidence too low (%.2f < 0.3)\n", confidence)
+		// Include all suggestions (confidence filter removed for diagnostic purposes)
+		suggestion := models.MetadataSuggestion{
+			Title:      doc.Title,
+			Author:     strings.Join(doc.AuthorName, ", "),
+			ISBN:       h.extractBestISBN(workDetails.ISBN),
+			Publisher:  h.extractBestPublisher(workDetails.Publisher),
+			Year:       doc.FirstPublishYear,
+			Confidence: confidence,
+			Source:     "Open Library",
 		}
+		suggestions = append(suggestions, suggestion)
+		totalConfidence += confidence
+		fmt.Printf("   ✅ Added to suggestions (confidence: %.2f)\n", confidence)
 	}
 
 	// Sort by confidence (highest first)
@@ -1248,9 +1243,9 @@ func (h *BooksHandler) searchOpenLibrary(title, author string) ([]models.Metadat
 		return suggestions[i].Confidence > suggestions[j].Confidence
 	})
 
-	// Limit to top 5 suggestions
-	if len(suggestions) > 5 {
-		suggestions = suggestions[:5]
+	// Limit to top 10 suggestions (increased from 5 since we removed confidence filtering)
+	if len(suggestions) > 10 {
+		suggestions = suggestions[:10]
 	}
 
 	// Calculate average confidence
