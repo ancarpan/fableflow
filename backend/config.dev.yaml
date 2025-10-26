@@ -1,0 +1,25 @@
+# Development Configuration for FableFlow
+
+# Server settings
+server:
+  host: "localhost"  # Local development
+  port: "8080"       # Backend port
+  serve_static_assets: false  # Don't serve static files from backend in dev mode
+
+# Library settings
+library:
+  scan_directory: "../data/ebooks"  # Default directory to scan for ebooks
+  auto_scan: true                            # Automatically scan on startup
+  import_directory: "../../ebooks"  # Directory to scan for books to import
+  quarantine_directory: "../data/quarantine"  # Directory for files with missing metadata
+
+# Temporary directory settings
+tmp_dir: "/tmp/fableflow"  # Directory for temporary files
+
+# Logging settings
+logdir: "../data/logs"  # Directory for import session logs
+max_import_logs: 10  # Maximum number of import session logs to keep
+
+# Database settings
+database:
+  path: "../data/ebooks.db"  # Path to SQLite database file
