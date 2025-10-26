@@ -133,3 +133,9 @@ conversion-tmp/
 local/
 dev/
 .cursor
+data/database/*
+data/ebooks/*
+data/logs/*
+data/quarantine/*
+
+backend/fableflow-backend

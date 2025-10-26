@@ -19,29 +19,42 @@ stop:
 # Clean everything
 .PHONY: clean
 clean:
-	@echo "🧹 Cleaning Docker containers and volumes..."
-	docker-compose down -v
-	rm -rf data/database/* data/ebooks/* data/logs/* data/quarantine/*
-	@echo "✅ Clean complete"
+	rm -rf data/database/* data/ebooks/* data/logs/* data/quarantine/* data/ebooks.db
 
 # Show logs
 .PHONY: logs
 logs:
 	docker-compose logs -f
 
+# Development mode - local Go backend
+.PHONY: dev
+dev: build-backend
+	@./start-dev.sh
+
+# Build backend locally
+.PHONY: build-backend
+build-backend:
+	@echo "🔨 Building backend..."
+	@cd backend && make build
+	@echo "✅ Backend built successfully"
+
+
 # Help
 .PHONY: help
 help:
-	@echo "FableFlow - Ebook Manager (Docker-only)"
+	@echo "FableFlow - Ebook Manager"
 	@echo ""
-	@echo "Available commands:"
-	@echo "  make run     - Start production mode"
+	@echo "Production commands:"
+	@echo "  make run     - Start production mode (Docker)"
 	@echo "  make stop    - Stop services"
 	@echo "  make clean   - Clean everything"
 	@echo "  make logs    - Show logs"
-	@echo "  make help    - Show this help"
 	@echo ""
-	@echo "Quick start: make run"
+	@echo "Development commands:"
+	@echo "  make dev         - Start development mode (local Go + Python server)"
+	@echo "  make build-backend - Build backend locally"
+	@echo ""
+	@echo "Quick start: make dev"
 
 # Default target
 .DEFAULT_GOAL := help
