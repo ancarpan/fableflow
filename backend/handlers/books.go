@@ -22,6 +22,7 @@ import (
 	"fableflow/backend/database"
 	"fableflow/backend/epub"
 	"fableflow/backend/models"
+	"fableflow/backend/pathmanager"
 )
 
 // BooksHandler handles book-related HTTP requests
@@ -563,7 +564,12 @@ func (h *BooksHandler) EditBookMetadata(w http.ResponseWriter, r *http.Request) 
 
 	if needsFileMove {
 		// Generate new file path based on new author/title
-		newFilePath = h.generateNewFilePath(editRequest.Author, editRequest.Title, book.Format)
+		var err error
+		newFilePath, err = h.generateNewFilePath(editRequest.Author, editRequest.Title, book.Format)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to generate new file path: %v", err), http.StatusInternalServerError)
+			return
+		}
 
 		// Move the file to new location
 		if err := h.moveBookFile(book.FilePath, newFilePath); err != nil {
@@ -726,39 +732,12 @@ func (h *BooksHandler) lookupGoogleBooks(isbn string) (map[string]interface{}, e
 }
 
 // generateNewFilePath creates a new file path based on author and title
-func (h *BooksHandler) generateNewFilePath(author, title, format string) string {
-	// Clean author and title for filesystem
-	cleanAuthor := h.cleanForFilesystem(author)
-	cleanTitle := h.cleanForFilesystem(title)
+func (h *BooksHandler) generateNewFilePath(author, title, format string) (string, error) {
+	// Create path manager and generate file path
+	pathConfig := pathmanager.DefaultPathConfig(h.config.Library.ScanDirectory)
+	pathMgr := pathmanager.NewPathManager(pathConfig)
 
-	// Create directory structure: Author/Title/
-	// Use scan directory from config
-	dirPath := filepath.Join(h.config.Library.ScanDirectory, cleanAuthor, cleanTitle)
-
-	// Generate filename: Title - Author.epub
-	filename := fmt.Sprintf("%s - %s.%s", cleanTitle, cleanAuthor, format)
-
-	return filepath.Join(dirPath, filename)
-}
-
-// cleanForFilesystem removes invalid characters for filesystem paths
-func (h *BooksHandler) cleanForFilesystem(s string) string {
-	// Remove or replace invalid characters
-	invalid := []string{"/", "\\", ":", "*", "?", "\"", "<", ">", "|"}
-	result := s
-	for _, char := range invalid {
-		result = strings.ReplaceAll(result, char, "")
-	}
-
-	// Trim whitespace
-	result = strings.TrimSpace(result)
-
-	// Ensure it's not empty
-	if result == "" {
-		result = "Unknown"
-	}
-
-	return result
+	return pathMgr.GenerateBookPath(author, title, format)
 }
 
 // moveBookFile moves a book file to a new location
@@ -1551,7 +1530,11 @@ func (h *BooksHandler) EditQuarantineBook(w http.ResponseWriter, r *http.Request
 	}
 
 	// Generate new file path in scan directory
-	newFilePath := h.generateNewFilePath(editRequest.Author, editRequest.Title, "epub")
+	newFilePath, err := h.generateNewFilePath(editRequest.Author, editRequest.Title, "epub")
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to generate new file path: %v", err), http.StatusInternalServerError)
+		return
+	}
 
 	// Create the new directory structure
 	newDir := filepath.Dir(newFilePath)

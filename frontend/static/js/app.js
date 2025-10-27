@@ -600,10 +600,7 @@ function fableFlowApp() {
                     };
                     
                     this.currentView = 'edit';
-                    this.breadcrumb = [
-                        { name: 'Home', action: () => this.goHome() },
-                        { name: 'Edit Book', action: null }
-                    ];
+                    this.breadcrumb = ['Home', 'Edit Book'];
                 } else {
                     this.showToast('Error loading book data');
                 }

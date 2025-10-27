@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"fableflow/backend/metadata"
+	"fableflow/backend/pathmanager"
 )
 
 // QuarantinedBook represents a book that was quarantined during import
@@ -198,9 +199,16 @@ func (s *ImportService) processFile(session *ImportSession, filePath string) {
 		return
 	}
 
-	// Create target directory structure
-	targetDir := filepath.Join(s.config.ScanDirectory, bookMetadata.Author, bookMetadata.Title)
-	targetFile := filepath.Join(targetDir, fmt.Sprintf("%s - %s.epub", bookMetadata.Title, bookMetadata.Author))
+	// Create path manager and generate target file path
+	pathConfig := pathmanager.DefaultPathConfig(s.config.ScanDirectory)
+	pathMgr := pathmanager.NewPathManager(pathConfig)
+
+	targetFile, err := pathMgr.GenerateBookPath(bookMetadata.Author, bookMetadata.Title, "epub")
+	if err != nil {
+		s.logError(session, fmt.Sprintf("Failed to generate book path: %v", err))
+		s.quarantineFile(session, filePath, "Failed to generate book path")
+		return
+	}
 
 	// Check if file already exists
 	if _, err := os.Stat(targetFile); err == nil {
@@ -216,6 +224,7 @@ func (s *ImportService) processFile(session *ImportSession, filePath string) {
 	}
 
 	// Create target directory
+	targetDir := filepath.Dir(targetFile)
 	if err := os.MkdirAll(targetDir, 0755); err != nil {
 		s.logError(session, fmt.Sprintf("Failed to create target directory %s: %v", targetDir, err))
 		return
