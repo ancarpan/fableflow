@@ -40,6 +40,13 @@ class FableFlowDevHandler(http.server.SimpleHTTPRequestHandler):
         else:
             self.send_error(404)
     
+    def do_PUT(self):
+        # Handle API requests - proxy to backend
+        if self.path.startswith('/api/'):
+            self.proxy_to_backend()
+        else:
+            self.send_error(404)
+    
     def do_OPTIONS(self):
         # Handle CORS preflight requests
         self.send_response(200)

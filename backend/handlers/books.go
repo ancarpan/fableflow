@@ -500,9 +500,9 @@ func (h *BooksHandler) EditBookMetadata(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Extract book ID from URL path
-	// URL format: /api/books/{id}/edit
+	// URL format: /api/books/{id}
 	pathParts := strings.Split(r.URL.Path, "/")
-	if len(pathParts) < 5 || pathParts[4] != "edit" {
+	if len(pathParts) < 4 {
 		http.Error(w, "Invalid URL format", http.StatusBadRequest)
 		return
 	}

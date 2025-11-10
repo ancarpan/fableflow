@@ -638,7 +638,7 @@ function fableFlowApp() {
                     });
                 } else {
                     // Use regular book edit endpoint
-                    response = await fetch(`/api/books/${this.editingBook.id}/edit`, {
+                    response = await fetch(`/api/books/${this.editingBook.id}`, {
                         method: 'PUT',
                         headers: {
                             'Content-Type': 'application/json'

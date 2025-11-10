@@ -101,7 +101,7 @@ func main() {
 	// Setup routes
 	http.HandleFunc("/api/health", healthHandler.HealthCheck)
 	http.HandleFunc("/api/books", booksHandler.GetAllBooks)
-	http.HandleFunc("/api/books/", booksHandler.GetBookByID)
+	http.HandleFunc("/api/books/", corsMiddleware(booksHandler.GetBookByID))
 	http.HandleFunc("/api/books/recent", corsMiddleware(booksHandler.GetRecentBooks))
 	http.HandleFunc("/api/books/random", corsMiddleware(booksHandler.GetRandomBooks))
 	http.HandleFunc("/api/books/lookup-isbn", corsMiddleware(booksHandler.LookupISBN))
