@@ -76,6 +76,11 @@ func (h *BooksHandler) GetBookByID(w http.ResponseWriter, r *http.Request) {
 		h.EditBookMetadata(w, r)
 		return
 	}
+	if r.Method == "DELETE" {
+		// This is a delete request, delegate to RemoveBook
+		h.RemoveBook(w, r)
+		return
+	}
 
 	// Extract ID from URL path (assuming /api/books/{id})
 	// This is a simplified version - in a real app you'd use a router
@@ -139,7 +144,7 @@ func (h *BooksHandler) AddBook(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "book added"})
 }
 
-// RemoveBook removes a book by ID
+// RemoveBook removes a book by ID (deletes file then database record)
 func (h *BooksHandler) RemoveBook(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "DELETE" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -148,20 +153,63 @@ func (h *BooksHandler) RemoveBook(w http.ResponseWriter, r *http.Request) {
 
 	// Extract ID from URL path
 	idStr := r.URL.Path[len("/api/books/"):]
+	// Handle cases where the path might have additional segments
+	if strings.Contains(idStr, "/") {
+		idStr = strings.Split(idStr, "/")[0]
+	}
+
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		http.Error(w, "Invalid book ID", http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid book ID"})
 		return
 	}
 
-	err = h.db.RemoveBook(id)
+	// Get book from database to retrieve file_path
+	book, err := h.db.GetBookByID(id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Printf("Error getting book %d for deletion: %v", id, err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Book not found"})
 		return
 	}
 
+	// Delete file from disk first
+	if book.FilePath != "" {
+		if err := os.Remove(book.FilePath); err != nil {
+			log.Printf("Error deleting file %s for book %d: %v", book.FilePath, id, err)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{
+				"error": fmt.Sprintf("Failed to delete file: %v", err),
+			})
+			return
+		}
+		log.Printf("Successfully deleted file: %s", book.FilePath)
+
+		// Clean up empty directories from the file's location
+		if err := h.cleanupEmptyDirectories(filepath.Dir(book.FilePath)); err != nil {
+			// Log the error but don't fail the operation
+			log.Printf("Warning: failed to cleanup empty directories: %v", err)
+		}
+	}
+
+	// Delete record from database
+	if err := h.db.RemoveBook(id); err != nil {
+		log.Printf("Error deleting book %d from database: %v", id, err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": fmt.Sprintf("Failed to delete book record: %v", err),
+		})
+		return
+	}
+
+	log.Printf("Successfully deleted book %d (title: %s)", id, book.Title)
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "book removed"})
+	json.NewEncoder(w).Encode(map[string]string{"status": "deleted", "message": "Book deleted successfully"})
 }
 
 // GetAuthors returns all unique authors

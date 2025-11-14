@@ -1014,6 +1014,18 @@
                         </div>
                     </div>
                 </div>
+                
+                <!-- Delete Book Section -->
+                <div class="mt-8 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200">
+                    <h3 class="text-lg font-semibold text-red-900 dark:text-red-200 mb-4">🗑️ Delete Book</h3>
+                    <p class="text-sm text-gray-700 dark:text-gray-300 mb-4">
+                        Permanently delete this book from your library. This action cannot be undone.
+                    </p>
+                    <button @click="deleteBook()" 
+                            class="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+                        Delete Book
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -1452,6 +1464,46 @@
                     Cancel
                 </button>
                 <button @click="confirmDeleteQuarantineBook()" 
+                        class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+                    Delete
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Book Confirmation Modal -->
+    <div x-show="showDeleteBookConfirm" 
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="transform opacity-0"
+         x-transition:enter-end="transform opacity-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="transform opacity-100"
+         x-transition:leave-end="transform opacity-0"
+         class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+         @click.self="cancelDeleteBook()">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <!-- Modal Header -->
+            <div class="bg-red-50 dark:bg-red-900/20 px-6 py-4 border-b border-red-200 dark:border-red-800">
+                <h3 class="text-lg font-semibold text-red-900 dark:text-red-200">⚠️ Delete Book</h3>
+            </div>
+            
+            <!-- Modal Content -->
+            <div class="p-6">
+                <p class="text-gray-700 dark:text-gray-300 mb-4">
+                    Are you sure you want to delete <strong x-text="editingBook?.title"></strong>?
+                </p>
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                    This will permanently delete the book file and remove it from your library. This action cannot be undone.
+                </p>
+            </div>
+            
+            <!-- Modal Actions -->
+            <div class="px-6 py-4 bg-gray-50 dark:bg-gray-700/50 flex justify-end gap-3">
+                <button @click="cancelDeleteBook()" 
+                        class="px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md text-gray-700 dark:text-gray-300 bg-white hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                    Cancel
+                </button>
+                <button @click="confirmDeleteBook()" 
                         class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
                     Delete
                 </button>

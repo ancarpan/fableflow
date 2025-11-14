@@ -72,6 +72,9 @@ function fableFlowApp() {
         quarantineBooks: [],
         showDeleteConfirm: false,
         deleteConfirmBook: null,
+        
+        // Book deletion
+        showDeleteBookConfirm: false,
 
         // Initialize the application
         init() {
@@ -1038,6 +1041,68 @@ function fableFlowApp() {
         cancelDeleteQuarantineBook() {
             this.showDeleteConfirm = false;
             this.deleteConfirmBook = null;
+        },
+        
+        // Book deletion functions
+        deleteBook() {
+            if (!this.editingBook || !this.editingBook.id) {
+                this.showToast('No book selected for deletion');
+                return;
+            }
+            this.showDeleteBookConfirm = true;
+        },
+        
+        async confirmDeleteBook() {
+            if (!this.editingBook || !this.editingBook.id) {
+                return;
+            }
+            
+            const bookId = this.editingBook.id;
+            this.showDeleteBookConfirm = false;
+            
+            try {
+                const response = await fetch(`/api/books/${bookId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+
+                if (!response.ok) {
+                    const responseText = await response.text();
+                    let errorMessage = 'Failed to delete book';
+                    
+                    // Try to parse as JSON
+                    try {
+                        const errorData = JSON.parse(responseText);
+                        if (errorData.error) {
+                            errorMessage = errorData.error;
+                        }
+                    } catch (e) {
+                        // Not JSON, use text directly
+                        if (responseText) {
+                            errorMessage = responseText;
+                        }
+                    }
+                    
+                    throw new Error(errorMessage);
+                }
+
+                const result = await response.json();
+                this.showToast(result.message || 'Book deleted successfully');
+                
+                // Redirect to home
+                this.goHome();
+            } catch (error) {
+                console.error('Error deleting book:', error);
+                this.showToast('Failed to delete book: ' + error.message);
+            } finally {
+                this.showDeleteBookConfirm = false;
+            }
+        },
+        
+        cancelDeleteBook() {
+            this.showDeleteBookConfirm = false;
         },
         
         // Metadata search functions
