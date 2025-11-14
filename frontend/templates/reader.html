@@ -19,7 +19,7 @@
         }
         
         #viewer {
-            height: 100vh;
+            height: calc(100vh - 73px); /* Subtract header height */
             width: 100%;
         }
         .navigation {
@@ -49,6 +49,12 @@
         .header-content {
             display: flex;
             align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        .header-left {
+            display: flex;
+            align-items: center;
             gap: 1rem;
         }
         .back-btn {
@@ -66,16 +72,47 @@
             font-weight: 600;
             color: #111827;
         }
+        .mode-switcher {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .mode-switcher label {
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+        .mode-switcher select {
+            padding: 0.5rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            background: white;
+            color: #111827;
+            cursor: pointer;
+            font-size: 0.875rem;
+        }
+        .mode-switcher select:hover {
+            border-color: #007bff;
+        }
     </style>
 </head>
 <body>
     <!-- Header -->
     <div class="header">
         <div class="header-content">
-            <button onclick="goBack()" class="back-btn">
-                ← Back
-            </button>
-            <h1 id="book-title" class="title">Loading...</h1>
+            <div class="header-left">
+                <button onclick="goBack()" class="back-btn">
+                    ← Back
+                </button>
+                <h1 id="book-title" class="title">Loading...</h1>
+            </div>
+            <div class="mode-switcher">
+                <label for="mode-select">View Mode:</label>
+                <select id="mode-select">
+                    <option value="scrolled-doc">Scrolled</option>
+                    <option value="paginated">Paginated</option>
+                    <option value="scrolled">Scrolled (Alt)</option>
+                </select>
+            </div>
         </div>
     </div>
 
@@ -95,63 +132,111 @@
         // Get the EPUB file URL
         const epubUrl = `/api/download/${bookId}.epub`;
         
-        // Load the EPUB
-        var book = ePub(epubUrl);
-        var rendition = book.renderTo("viewer", {
-            flow: "scrolled-doc"
-        });
-
-        rendition.display();
-
+        // Global variables
+        var book = null;
+        var rendition = null;
         var next = document.getElementById("next");
-        next.addEventListener("click", function(e){
-            rendition.next();
-            e.preventDefault();
-        }, false);
-
         var prev = document.getElementById("prev");
-        prev.addEventListener("click", function(e){
-            rendition.prev();
+        var modeSelect = document.getElementById("mode-select");
+
+        // Load saved mode preference or default to scrolled-doc
+        var currentMode = localStorage.getItem('epubReaderMode') || 'scrolled-doc';
+        modeSelect.value = currentMode;
+
+        // Setup navigation handlers (only once)
+        next.addEventListener("click", function(e){
+            if (rendition) {
+                rendition.next();
+            }
             e.preventDefault();
         }, false);
 
-        rendition.on("relocated", function(location){
-            console.log(location);
-        });
+        prev.addEventListener("click", function(e){
+            if (rendition) {
+                rendition.prev();
+            }
+            e.preventDefault();
+        }, false);
 
-        rendition.on("rendered", function(section){
+        // Function to update navigation buttons
+        function updateNavigation(section) {
+            if (!section) return;
+
             var nextSection = section.next();
             var prevSection = section.prev();
 
             if(nextSection) {
-                nextNav = book.navigation.get(nextSection.href);
-
-                if(nextNav) {
-                    nextLabel = nextNav.label;
-                } else {
-                    nextLabel = "next";
-                }
-
+                var nextNav = book.navigation.get(nextSection.href);
+                var nextLabel = nextNav ? nextNav.label : "next";
                 next.textContent = nextLabel + " »";
             } else {
                 next.textContent = "";
             }
 
             if(prevSection) {
-                prevNav = book.navigation.get(prevSection.href);
-
-                if(prevNav) {
-                    prevLabel = prevNav.label;
-                } else {
-                    prevLabel = "previous";
-                }
-
+                var prevNav = book.navigation.get(prevSection.href);
+                var prevLabel = prevNav ? prevNav.label : "previous";
                 prev.textContent = "« " + prevLabel;
             } else {
                 prev.textContent = "";
             }
+        }
 
+        // Function to render the book with a specific mode
+        function renderBook(mode) {
+            // Clear the viewer
+            var viewer = document.getElementById("viewer");
+            viewer.innerHTML = '';
+
+            // Destroy existing rendition if it exists
+            if (rendition) {
+                rendition.destroy();
+                rendition = null;
+            }
+
+            // Create new rendition with selected mode
+            rendition = book.renderTo("viewer", {
+                flow: mode,
+                width: "100%",
+                height: "100%"
+            });
+
+            rendition.display();
+
+            // Setup event handlers
+            rendition.on("relocated", function(location){
+                console.log(location);
+            });
+
+            rendition.on("rendered", function(section){
+                updateNavigation(section);
+            });
+        }
+
+        // Function to switch reading mode
+        function switchMode(newMode) {
+            currentMode = newMode;
+            localStorage.setItem('epubReaderMode', newMode);
+            renderBook(newMode);
+        }
+
+        // Load the EPUB
+        book = ePub(epubUrl);
+        
+        // Wait for book to be ready, then render
+        book.ready.then(function() {
+            renderBook(currentMode);
         });
+
+        // Handle mode change
+        modeSelect.addEventListener("change", function(e) {
+            switchMode(e.target.value);
+        });
+
+        // Go back function
+        function goBack() {
+            window.history.back();
+        }
 
     </script>
 </body>
