@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -797,6 +798,17 @@ func (h *BooksHandler) GetQuarantineBooks(w http.ResponseWriter, r *http.Request
 			bookMetadata = h.extractFromFilename(path)
 		}
 
+		// Run 'file' command to get file information
+		fileInfo := ""
+		cmd := exec.Command("file", path)
+		output, err := cmd.Output()
+		if err == nil {
+			fileInfo = strings.TrimSpace(string(output))
+		} else {
+			// If file command fails, use a fallback message
+			fileInfo = fmt.Sprintf("Unable to determine file type: %v", err)
+		}
+
 		// Create book entry
 		book := models.QuarantineBook{
 			Book: models.Book{
@@ -809,6 +821,7 @@ func (h *BooksHandler) GetQuarantineBooks(w http.ResponseWriter, r *http.Request
 				ISBN:      bookMetadata.ISBN,
 				Publisher: bookMetadata.Publisher,
 			},
+			FileInfo: fileInfo,
 		}
 
 		// Look up quarantine reason for this file

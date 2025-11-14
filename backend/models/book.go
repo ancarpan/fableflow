@@ -33,6 +33,7 @@ type QuarantineBook struct {
 	QuarantineReason string `json:"quarantine_reason,omitempty"`
 	QuarantineDetail string `json:"quarantine_detail,omitempty"`
 	QuarantineDate   string `json:"quarantine_date,omitempty"`
+	FileInfo         string `json:"file_info,omitempty"` // Output from 'file' command
 }
 
 // ScanRequest represents a request to scan a directory
