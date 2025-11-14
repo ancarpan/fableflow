@@ -7,6 +7,7 @@ Serves static files and proxies API requests to the Go backend
 import http.server
 import socketserver
 import urllib.request
+import urllib.error
 import urllib.parse
 import json
 import os
@@ -81,21 +82,29 @@ class FableFlowDevHandler(http.server.SimpleHTTPRequestHandler):
                 headers=dict(self.headers)
             )
             
-            # Make request to backend
-            with urllib.request.urlopen(req) as response:
-                # Send response headers
-                self.send_response(response.getcode())
-                self.send_cors_headers()
+            # Make request to backend - handle HTTP errors
+            try:
+                response = urllib.request.urlopen(req)
+            except urllib.error.HTTPError as e:
+                # Backend returned an error status - forward it
+                response = e
+            
+            # Send response headers
+            self.send_response(response.getcode())
+            self.send_cors_headers()
+            
+            # Copy headers from backend response
+            for header, value in response.headers.items():
+                if header.lower() not in ['content-encoding', 'content-length', 'transfer-encoding']:
+                    self.send_header(header, value)
+            self.end_headers()
+            
+            # Copy response body
+            self.wfile.write(response.read())
                 
-                # Copy headers from backend response
-                for header, value in response.headers.items():
-                    if header.lower() not in ['content-encoding', 'content-length', 'transfer-encoding']:
-                        self.send_header(header, value)
-                self.end_headers()
-                
-                # Copy response body
-                self.wfile.write(response.read())
-                
+        except urllib.error.URLError as e:
+            print(f"Error connecting to backend: {e}")
+            self.send_error(502, f"Backend connection failed: {e}")
         except Exception as e:
             print(f"Error proxying to backend: {e}")
             self.send_error(502, f"Backend connection failed: {e}")

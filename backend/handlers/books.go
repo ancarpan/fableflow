@@ -625,7 +625,66 @@ func (h *BooksHandler) LookupISBN(w http.ResponseWriter, r *http.Request) {
 	// Lookup metadata from Google Books API
 	metadata, err := h.lookupGoogleBooks(request.ISBN)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		errMsg := err.Error()
+		errMsgLower := strings.ToLower(errMsg)
+
+		// Check if it's a "not found" error
+		if strings.Contains(errMsgLower, "no book found") {
+			log.Printf("ISBN lookup: no book found for ISBN %s", request.ISBN)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]string{
+				"error": errMsg,
+			})
+			return
+		}
+
+		// Check if it's a Google Books API error (503, 500, etc.)
+		if strings.Contains(errMsgLower, "google books api returned status") {
+			// Extract status code from error message
+			var apiStatusCode int
+			fmt.Sscanf(errMsg, "google Books API returned status %d", &apiStatusCode)
+
+			// Map API status codes to appropriate HTTP status
+			// 503 from Google Books -> 503 Service Unavailable
+			// 500 from Google Books -> 502 Bad Gateway (upstream error)
+			// Other errors -> 502 Bad Gateway
+			var httpStatus int
+			if apiStatusCode == 503 {
+				httpStatus = http.StatusServiceUnavailable
+			} else if apiStatusCode >= 500 {
+				httpStatus = http.StatusBadGateway
+			} else {
+				httpStatus = http.StatusBadGateway
+			}
+
+			log.Printf("ISBN lookup: Google Books API error for ISBN %s: %s", request.ISBN, errMsg)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(httpStatus)
+			json.NewEncoder(w).Encode(map[string]string{
+				"error": fmt.Sprintf("Google Books API is temporarily unavailable (status %d). Please try again later.", apiStatusCode),
+			})
+			return
+		}
+
+		// Check if it's a network/connection error
+		if strings.Contains(errMsgLower, "failed to query google books api") {
+			log.Printf("ISBN lookup: connection error for ISBN %s: %v", request.ISBN, err)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadGateway)
+			json.NewEncoder(w).Encode(map[string]string{
+				"error": "Unable to connect to Google Books API. Please try again later.",
+			})
+			return
+		}
+
+		// Other unexpected errors
+		log.Printf("ISBN lookup error for ISBN %s: %v", request.ISBN, err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "An unexpected error occurred during ISBN lookup.",
+		})
 		return
 	}
 

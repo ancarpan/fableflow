@@ -530,11 +530,12 @@ function fableFlowApp() {
         },
 
         showToast(message) {
+            console.log('showToast called with message:', message);
             this.toast.message = message;
             this.toast.show = true;
             setTimeout(() => {
                 this.toast.show = false;
-            }, 3000);
+            }, 5000); // Increased timeout to 5 seconds for better visibility
         },
 
         // Load recent books for homepage
@@ -874,8 +875,41 @@ function fableFlowApp() {
                 });
                 
                 if (!response.ok) {
-                    const error = await response.text();
-                    throw new Error(error);
+                    // Read response body once (as text, then parse if JSON)
+                    const responseText = await response.text();
+                    let errorMessage = null;
+                    
+                    // Try to parse as JSON (backend returns JSON errors)
+                    try {
+                        const errorData = JSON.parse(responseText);
+                        if (errorData.error) {
+                            errorMessage = errorData.error;
+                        }
+                    } catch (e) {
+                        // Not JSON, will use status-based fallback
+                        console.log('Failed to parse error response as JSON:', responseText);
+                    }
+                    
+                    // Determine the message to show
+                    let messageToShow = null;
+                    if (errorMessage) {
+                        messageToShow = errorMessage;
+                    } else if (response.status === 404) {
+                        messageToShow = 'No book found for this ISBN. The book may not be available in Google Books.';
+                    } else if (response.status === 503) {
+                        messageToShow = 'Google Books API is temporarily unavailable. Please try again later.';
+                    } else if (response.status === 502) {
+                        messageToShow = 'Unable to connect to Google Books API. Please try again later.';
+                    } else {
+                        messageToShow = 'ISBN lookup failed. Please try again.';
+                    }
+                    
+                    // Always show toast message
+                    console.log('ISBN lookup error - Status:', response.status, 'Message:', messageToShow);
+                    this.showToast(messageToShow);
+                    this.isbnLookup.fetchedData = null;
+                    this.isbnLookup.loading = false;
+                    return;
                 }
                 
                 this.isbnLookup.fetchedData = await response.json();
@@ -883,7 +917,7 @@ function fableFlowApp() {
                 
             } catch (error) {
                 console.error('ISBN lookup failed:', error);
-                this.showToast('ISBN lookup failed: ' + error.message);
+                this.showToast('ISBN lookup failed: ' + (error.message || 'Network error occurred'));
                 this.isbnLookup.fetchedData = null;
             } finally {
                 this.isbnLookup.loading = false;
