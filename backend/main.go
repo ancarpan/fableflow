@@ -107,6 +107,7 @@ func main() {
 	http.HandleFunc("/api/books/lookup-isbn", corsMiddleware(booksHandler.LookupISBN))
 	http.HandleFunc("/api/quarantine", corsMiddleware(booksHandler.GetQuarantineBooks))
 	http.HandleFunc("/api/quarantine/edit", corsMiddleware(booksHandler.EditQuarantineBook))
+	http.HandleFunc("/api/quarantine/delete", corsMiddleware(booksHandler.DeleteQuarantineBook))
 	http.HandleFunc("/api/quarantine/covers/", booksHandler.ServeQuarantineCover)
 	http.HandleFunc("/api/books/search-metadata", corsMiddleware(booksHandler.SearchMetadata))
 	http.HandleFunc("/api/search", booksHandler.SearchBooks)

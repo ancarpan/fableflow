@@ -1586,6 +1586,75 @@ func (h *BooksHandler) EditQuarantineBook(w http.ResponseWriter, r *http.Request
 	})
 }
 
+// DeleteQuarantineBook handles deletion of a quarantine book
+func (h *BooksHandler) DeleteQuarantineBook(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get file path from request body
+	var req struct {
+		FilePath string `json:"file_path"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request: file_path is required", http.StatusBadRequest)
+		return
+	}
+
+	filePath := req.FilePath
+	if filePath == "" {
+		http.Error(w, "file_path is required", http.StatusBadRequest)
+		return
+	}
+
+	// Validate that the file is in the quarantine directory
+	quarantineDir := h.config.Library.QuarantineDirectory
+	if quarantineDir == "" {
+		http.Error(w, "Quarantine directory not configured", http.StatusInternalServerError)
+		return
+	}
+
+	// Ensure the file path is within the quarantine directory (security check)
+	absQuarantineDir, err := filepath.Abs(quarantineDir)
+	if err != nil {
+		http.Error(w, "Invalid quarantine directory", http.StatusInternalServerError)
+		return
+	}
+
+	absFilePath, err := filepath.Abs(filePath)
+	if err != nil {
+		http.Error(w, "Invalid file path", http.StatusBadRequest)
+		return
+	}
+
+	if !strings.HasPrefix(absFilePath, absQuarantineDir) {
+		http.Error(w, "File is not in quarantine directory", http.StatusForbidden)
+		return
+	}
+
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		http.Error(w, "File not found", http.StatusNotFound)
+		return
+	}
+
+	// Delete the file
+	err = os.Remove(filePath)
+	if err != nil {
+		log.Printf("Error deleting quarantine file %s: %v", filePath, err)
+		http.Error(w, fmt.Sprintf("Failed to delete file: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":  "deleted",
+		"message": "File deleted successfully",
+	})
+}
+
 // cleanupEmptyDirectories recursively removes empty directories
 func (h *BooksHandler) cleanupEmptyDirectories(dirPath string) error {
 	// Check if directory exists

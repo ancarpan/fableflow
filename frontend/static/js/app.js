@@ -70,6 +70,8 @@ function fableFlowApp() {
         
         // Quarantine data
         quarantineBooks: [],
+        showDeleteConfirm: false,
+        deleteConfirmBook: null,
 
         // Initialize the application
         init() {
@@ -959,6 +961,49 @@ function fableFlowApp() {
             
             this.currentView = 'edit';
             this.breadcrumb = ['Home', 'Admin', 'Quarantine', 'Edit Book'];
+        },
+        
+        deleteQuarantineBook(book) {
+            this.deleteConfirmBook = book;
+            this.showDeleteConfirm = true;
+        },
+        
+        async confirmDeleteQuarantineBook() {
+            if (!this.deleteConfirmBook) return;
+            
+            const book = this.deleteConfirmBook;
+            this.showDeleteConfirm = false;
+            
+            try {
+                const response = await fetch('/api/quarantine/delete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        file_path: book.file_path
+                    }),
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to delete quarantine book');
+                }
+
+                this.showToast('Quarantine book deleted successfully');
+                // Reload quarantine books
+                await this.loadQuarantineBooks();
+            } catch (error) {
+                console.error('Error deleting quarantine book:', error);
+                this.showToast('Failed to delete quarantine book: ' + error.message);
+            } finally {
+                this.deleteConfirmBook = null;
+            }
+        },
+        
+        cancelDeleteQuarantineBook() {
+            this.showDeleteConfirm = false;
+            this.deleteConfirmBook = null;
         },
         
         // Metadata search functions
