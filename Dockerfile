@@ -23,7 +23,8 @@ RUN apk add --no-cache \
     sqlite \
     ca-certificates \
     gettext \
-    tzdata
+    tzdata \
+    file
 
 # Create app user
 RUN adduser -D -s /bin/sh fableflow
