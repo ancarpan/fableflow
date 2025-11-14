@@ -93,6 +93,108 @@
         .mode-switcher select:hover {
             border-color: #007bff;
         }
+        .chapters-btn {
+            padding: 0.5rem 1rem;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.875rem;
+        }
+        .chapters-btn:hover {
+            background: #0056b3;
+        }
+        .chapters-sidebar {
+            position: fixed;
+            top: 73px;
+            left: 0;
+            width: 300px;
+            height: calc(100vh - 73px);
+            background: white;
+            border-right: 1px solid #e5e7eb;
+            box-shadow: 2px 0 4px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+        .chapters-sidebar.open {
+            transform: translateX(0);
+        }
+        .chapters-header {
+            padding: 1rem;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .chapters-header h2 {
+            margin: 0;
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #111827;
+        }
+        .close-chapters {
+            background: none;
+            border: none;
+            color: #6b7280;
+            cursor: pointer;
+            font-size: 1.5rem;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .close-chapters:hover {
+            color: #111827;
+        }
+        .chapters-list {
+            padding: 0.5rem 0;
+        }
+        .chapter-item {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            border-bottom: 1px solid #f3f4f6;
+            transition: background-color 0.2s;
+        }
+        .chapter-item:hover {
+            background-color: #f9fafb;
+        }
+        .chapter-item.active {
+            background-color: #eff6ff;
+            border-left: 3px solid #007bff;
+        }
+        .chapter-title {
+            font-size: 0.875rem;
+            color: #111827;
+            font-weight: 500;
+        }
+        .chapter-subtitle {
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin-top: 0.25rem;
+        }
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            display: none;
+        }
+        .sidebar-overlay.open {
+            display: block;
+        }
+        @media (max-width: 768px) {
+            .chapters-sidebar {
+                width: 80%;
+            }
+        }
     </style>
 </head>
 <body>
@@ -105,14 +207,31 @@
                 </button>
                 <h1 id="book-title" class="title">Loading...</h1>
             </div>
-            <div class="mode-switcher">
-                <label for="mode-select">View Mode:</label>
-                <select id="mode-select">
-                    <option value="scrolled-doc">Scrolled</option>
-                    <option value="paginated">Paginated</option>
-                    <option value="scrolled">Scrolled (Alt)</option>
-                </select>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <button id="chapters-btn" class="chapters-btn">📑 Chapters</button>
+                <div class="mode-switcher">
+                    <label for="mode-select">View Mode:</label>
+                    <select id="mode-select">
+                        <option value="scrolled-doc">Scrolled</option>
+                        <option value="paginated">Paginated</option>
+                        <option value="scrolled">Scrolled (Alt)</option>
+                    </select>
+                </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Sidebar Overlay -->
+    <div id="sidebar-overlay" class="sidebar-overlay" onclick="toggleChapters()"></div>
+
+    <!-- Chapters Sidebar -->
+    <div id="chapters-sidebar" class="chapters-sidebar">
+        <div class="chapters-header">
+            <h2>Table of Contents</h2>
+            <button class="close-chapters" onclick="toggleChapters()">×</button>
+        </div>
+        <div id="chapters-list" class="chapters-list">
+            <div style="padding: 1rem; color: #6b7280; text-align: center;">Loading chapters...</div>
         </div>
     </div>
 
@@ -138,6 +257,11 @@
         var next = document.getElementById("next");
         var prev = document.getElementById("prev");
         var modeSelect = document.getElementById("mode-select");
+        var chaptersBtn = document.getElementById("chapters-btn");
+        var chaptersSidebar = document.getElementById("chapters-sidebar");
+        var chaptersList = document.getElementById("chapters-list");
+        var sidebarOverlay = document.getElementById("sidebar-overlay");
+        var currentChapterHref = null;
 
         // Load saved mode preference or default to scrolled-doc
         var currentMode = localStorage.getItem('epubReaderMode') || 'scrolled-doc';
@@ -182,6 +306,97 @@
             }
         }
 
+        // Function to render chapters list
+        function renderChapters() {
+            if (!book || !book.navigation) {
+                chaptersList.innerHTML = '<div style="padding: 1rem; color: #6b7280; text-align: center;">No chapters available</div>';
+                return;
+            }
+
+            var toc = book.navigation.toc;
+            if (!toc || toc.length === 0) {
+                chaptersList.innerHTML = '<div style="padding: 1rem; color: #6b7280; text-align: center;">No table of contents available</div>';
+                return;
+            }
+
+            // Clear existing content
+            chaptersList.innerHTML = '';
+
+            function renderTocItem(item, level) {
+                var chapterItem = document.createElement('div');
+                chapterItem.className = 'chapter-item';
+                chapterItem.style.paddingLeft = (1 + level) + 'rem';
+                chapterItem.setAttribute('data-href', item.href);
+                
+                var title = document.createElement('div');
+                title.className = 'chapter-title';
+                title.textContent = item.label || 'Untitled';
+                chapterItem.appendChild(title);
+
+                chapterItem.addEventListener('click', function() {
+                    goToChapter(item.href);
+                });
+
+                chaptersList.appendChild(chapterItem);
+
+                // Render subitems recursively
+                if (item.subitems && item.subitems.length > 0) {
+                    item.subitems.forEach(function(subitem) {
+                        renderTocItem(subitem, level + 1);
+                    });
+                }
+            }
+
+            toc.forEach(function(item) {
+                renderTocItem(item, 0);
+            });
+        }
+
+        // Function to go to a specific chapter
+        function goToChapter(href) {
+            if (rendition) {
+                currentChapterHref = href;
+                rendition.display(href);
+                updateActiveChapter();
+                toggleChapters(); // Close sidebar after selection
+            }
+        }
+
+        // Function to update active chapter highlight
+        function updateActiveChapter() {
+            if (!currentChapterHref) return;
+            
+            var items = chaptersList.querySelectorAll('.chapter-item');
+            var activeItem = null;
+            
+            items.forEach(function(item) {
+                item.classList.remove('active');
+                var href = item.getAttribute('data-href');
+                // Match exact href or check if current chapter starts with this href
+                if (href && (href === currentChapterHref || currentChapterHref.indexOf(href) === 0)) {
+                    item.classList.add('active');
+                    activeItem = item;
+                }
+            });
+            
+            // Scroll active item into view if sidebar is open
+            if (activeItem && chaptersSidebar.classList.contains('open')) {
+                activeItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+
+        // Function to toggle chapters sidebar
+        function toggleChapters() {
+            var isOpen = chaptersSidebar.classList.contains('open');
+            if (isOpen) {
+                chaptersSidebar.classList.remove('open');
+                sidebarOverlay.classList.remove('open');
+            } else {
+                chaptersSidebar.classList.add('open');
+                sidebarOverlay.classList.add('open');
+            }
+        }
+
         // Function to render the book with a specific mode
         function renderBook(mode) {
             // Clear the viewer
@@ -201,15 +416,29 @@
                 height: "100%"
             });
 
-            rendition.display();
+            // Display current chapter if available, otherwise start from beginning
+            if (currentChapterHref) {
+                rendition.display(currentChapterHref);
+            } else {
+                rendition.display();
+            }
 
             // Setup event handlers
             rendition.on("relocated", function(location){
                 console.log(location);
+                // Update current chapter based on location
+                if (location && location.start && location.start.href) {
+                    currentChapterHref = location.start.href;
+                    updateActiveChapter();
+                }
             });
 
             rendition.on("rendered", function(section){
                 updateNavigation(section);
+                if (section && section.href) {
+                    currentChapterHref = section.href;
+                    updateActiveChapter();
+                }
             });
         }
 
@@ -225,7 +454,14 @@
         
         // Wait for book to be ready, then render
         book.ready.then(function() {
+            renderChapters();
             renderBook(currentMode);
+        });
+
+        // Setup chapters button
+        chaptersBtn.addEventListener("click", function(e) {
+            e.preventDefault();
+            toggleChapters();
         });
 
         // Handle mode change
