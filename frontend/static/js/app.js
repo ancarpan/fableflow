@@ -1127,15 +1127,17 @@ function fableFlowApp() {
                 }
                 
                 const data = await response.json();
-                this.metadataSearch.suggestions = data.suggestions || [];
+                // Ensure suggestions is always an array (handle null/undefined)
+                const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
+                this.metadataSearch.suggestions = suggestions;
                 this.metadataSearch.confidence = data.confidence || 0;
                 
                 // Auto-suggest if high confidence (>80%) and we have suggestions
-                if (data.confidence > 0.8 && data.suggestions.length > 0) {
-                    this.useSuggestion(data.suggestions[0]);
+                if (data.confidence > 0.8 && suggestions.length > 0) {
+                    this.useSuggestion(suggestions[0]);
                     this.showToast('High confidence match found and applied automatically!');
-                } else if (data.suggestions.length > 0) {
-                    this.showToast(`Found ${data.suggestions.length} suggestions. Please review and choose the best match.`);
+                } else if (suggestions.length > 0) {
+                    this.showToast(`Found ${suggestions.length} suggestions. Please review and choose the best match.`);
                 } else {
                     this.showToast('No matching books found in Open Library.');
                 }

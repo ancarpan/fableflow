@@ -1293,7 +1293,7 @@ func (h *BooksHandler) searchOpenLibrary(title, author string) ([]models.Metadat
 	fmt.Printf("📚 Found %d documents in Open Library response\n", len(searchResponse.Docs))
 
 	// Process results and calculate confidence scores
-	var suggestions []models.MetadataSuggestion
+	suggestions := []models.MetadataSuggestion{} // Initialize as empty slice, not nil
 	var totalConfidence float64
 
 	for i, doc := range searchResponse.Docs {
