@@ -1174,9 +1174,24 @@ func (h *BooksHandler) SearchMetadata(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Search Open Library
-	fmt.Printf("🔍 Starting Open Library search...\n")
-	suggestions, confidence, err := h.searchOpenLibrary(searchRequest.Title, searchRequest.Author)
+	// Determine search source from query parameter or default to openlibrary
+	source := r.URL.Query().Get("source")
+	if source == "" {
+		source = "openlibrary" // Default
+	}
+
+	var suggestions []models.MetadataSuggestion
+	var confidence float64
+	var err error
+
+	if source == "googlebooks" {
+		fmt.Printf("🔍 Starting Google Books search...\n")
+		suggestions, confidence, err = h.searchGoogleBooks(searchRequest.Title, searchRequest.Author)
+	} else {
+		fmt.Printf("🔍 Starting Open Library search...\n")
+		suggestions, confidence, err = h.searchOpenLibrary(searchRequest.Title, searchRequest.Author)
+	}
+
 	if err != nil {
 		fmt.Printf("❌ Search Error: %v\n", err)
 		http.Error(w, fmt.Sprintf("Failed to search metadata: %v", err), http.StatusInternalServerError)
@@ -1197,6 +1212,205 @@ func (h *BooksHandler) SearchMetadata(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+// searchGoogleBooks searches for books using Google Books API
+func (h *BooksHandler) searchGoogleBooks(title, author string) ([]models.MetadataSuggestion, float64, error) {
+	// Build search query
+	searchQuery := title
+	if author != "" {
+		searchQuery += " " + author
+	}
+
+	// Google Books API URL - search by title and author
+	searchURL := fmt.Sprintf("https://www.googleapis.com/books/v1/volumes?q=%s&maxResults=10", url.QueryEscape(searchQuery))
+
+	fmt.Printf("🔍 Google Books Search Request:\n")
+	fmt.Printf("   Title: '%s'\n", title)
+	fmt.Printf("   Author: '%s'\n", author)
+	fmt.Printf("   Query: '%s'\n", searchQuery)
+	fmt.Printf("   URL: %s\n", searchURL)
+
+	// Make HTTP request
+	resp, err := http.Get(searchURL)
+	if err != nil {
+		fmt.Printf("❌ HTTP Request Error: %v\n", err)
+		return nil, 0, fmt.Errorf("failed to query Google Books: %v", err)
+	}
+	defer resp.Body.Close()
+
+	fmt.Printf("📡 Google Books Response Status: %d\n", resp.StatusCode)
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		fmt.Printf("❌ Google Books Error Response: %s\n", string(body))
+		return nil, 0, fmt.Errorf("Google Books API returned status %d", resp.StatusCode)
+	}
+
+	// Parse response
+	var result struct {
+		Items []struct {
+			VolumeInfo struct {
+				Title               string   `json:"title"`
+				Authors             []string `json:"authors"`
+				Publisher           string   `json:"publisher"`
+				PublishedDate       string   `json:"publishedDate"`
+				Description         string   `json:"description"`
+				IndustryIdentifiers []struct {
+					Type       string `json:"type"`
+					Identifier string `json:"identifier"`
+				} `json:"industryIdentifiers"`
+			} `json:"volumeInfo"`
+		} `json:"items"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		fmt.Printf("❌ JSON Parse Error: %v\n", err)
+		return nil, 0, fmt.Errorf("failed to parse Google Books response: %v", err)
+	}
+
+	fmt.Printf("📚 Found %d documents in Google Books response\n", len(result.Items))
+
+	// Process results and calculate confidence scores
+	suggestions := []models.MetadataSuggestion{} // Initialize as empty slice
+	var totalConfidence float64
+
+	for i, item := range result.Items {
+		book := item.VolumeInfo
+		fmt.Printf("📖 Processing document %d:\n", i+1)
+		fmt.Printf("   Title: '%s'\n", book.Title)
+		fmt.Printf("   Authors: %v\n", book.Authors)
+
+		if book.Title == "" {
+			fmt.Printf("   ⚠️ Skipping - no title\n")
+			continue
+		}
+
+		// Extract ISBN
+		var isbn string
+		for _, id := range book.IndustryIdentifiers {
+			if id.Type == "ISBN_13" || id.Type == "ISBN_10" {
+				isbn = id.Identifier
+				break
+			}
+		}
+
+		// Format authors
+		authorStr := strings.Join(book.Authors, ", ")
+
+		// Calculate confidence score (simple matching)
+		confidence := h.calculateGoogleBooksConfidence(title, author, book.Title, book.Authors)
+
+		fmt.Printf("   🎯 Confidence score: %.2f\n", confidence)
+
+		suggestion := models.MetadataSuggestion{
+			Title:      book.Title,
+			Author:     authorStr,
+			ISBN:       isbn,
+			Publisher:  book.Publisher,
+			Year:       h.extractYear(book.PublishedDate),
+			Confidence: confidence,
+			Source:     "Google Books",
+		}
+		suggestions = append(suggestions, suggestion)
+		totalConfidence += confidence
+	}
+
+	// Sort by confidence (highest first)
+	sort.Slice(suggestions, func(i, j int) bool {
+		return suggestions[i].Confidence > suggestions[j].Confidence
+	})
+
+	// Limit to top 10 suggestions
+	if len(suggestions) > 10 {
+		suggestions = suggestions[:10]
+	}
+
+	// Calculate average confidence
+	avgConfidence := 0.0
+	if len(suggestions) > 0 {
+		avgConfidence = totalConfidence / float64(len(suggestions))
+	}
+
+	fmt.Printf("🎯 Final Results:\n")
+	fmt.Printf("   Total suggestions: %d\n", len(suggestions))
+	fmt.Printf("   Average confidence: %.2f\n", avgConfidence)
+
+	return suggestions, avgConfidence, nil
+}
+
+// calculateGoogleBooksConfidence calculates confidence score for Google Books results
+func (h *BooksHandler) calculateGoogleBooksConfidence(searchTitle, searchAuthor, resultTitle string, resultAuthors []string) float64 {
+	confidence := 0.0
+
+	// Normalize strings for comparison
+	normalizedSearchTitle := strings.ToLower(strings.TrimSpace(searchTitle))
+	normalizedResultTitle := strings.ToLower(strings.TrimSpace(resultTitle))
+	normalizedSearchAuthor := strings.ToLower(strings.TrimSpace(searchAuthor))
+
+	// Title matching (weight: 60%)
+	if normalizedSearchTitle != "" && normalizedResultTitle != "" {
+		if normalizedSearchTitle == normalizedResultTitle {
+			confidence += 0.6 // Exact match
+		} else if strings.Contains(normalizedResultTitle, normalizedSearchTitle) || strings.Contains(normalizedSearchTitle, normalizedResultTitle) {
+			confidence += 0.4 // Partial match
+		} else {
+			// Word overlap
+			searchWords := strings.Fields(normalizedSearchTitle)
+			resultWords := strings.Fields(normalizedResultTitle)
+			matches := 0
+			for _, sw := range searchWords {
+				for _, rw := range resultWords {
+					if sw == rw {
+						matches++
+						break
+					}
+				}
+			}
+			if len(searchWords) > 0 {
+				confidence += 0.3 * float64(matches) / float64(len(searchWords))
+			}
+		}
+	}
+
+	// Author matching (weight: 40%)
+	if normalizedSearchAuthor != "" && len(resultAuthors) > 0 {
+		resultAuthorStr := strings.ToLower(strings.Join(resultAuthors, " "))
+		if strings.Contains(resultAuthorStr, normalizedSearchAuthor) || strings.Contains(normalizedSearchAuthor, resultAuthorStr) {
+			confidence += 0.4
+		} else {
+			// Check individual author names
+			for _, author := range resultAuthors {
+				normalizedAuthor := strings.ToLower(strings.TrimSpace(author))
+				if strings.Contains(normalizedAuthor, normalizedSearchAuthor) || strings.Contains(normalizedSearchAuthor, normalizedAuthor) {
+					confidence += 0.3
+					break
+				}
+			}
+		}
+	}
+
+	// Cap at 1.0
+	if confidence > 1.0 {
+		confidence = 1.0
+	}
+
+	return confidence
+}
+
+// extractYear extracts year from published date string
+func (h *BooksHandler) extractYear(dateStr string) int {
+	if dateStr == "" {
+		return 0
+	}
+	// Try to extract year (format: "YYYY" or "YYYY-MM-DD")
+	parts := strings.Split(dateStr, "-")
+	if len(parts) > 0 {
+		if year, err := strconv.Atoi(parts[0]); err == nil {
+			return year
+		}
+	}
+	return 0
 }
 
 // normalizeSearchText cleans and normalizes text for search
