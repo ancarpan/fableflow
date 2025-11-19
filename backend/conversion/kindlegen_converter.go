@@ -131,21 +131,9 @@ func (kc *KindlegenConverter) generateIntermediateMOBI(inputPath, outputDir stri
 	}
 
 	// Check if MOBI file was created in the expected location
+	// Since both input and output are in the same temp directory, kindlegen should create the file in outputDir
 	if _, err := os.Stat(mobiPath); err != nil {
-		// Kindlegen might have created the file in the same directory as the input file
-		inputDir := filepath.Dir(inputPath)
-		actualMobiPath := filepath.Join(inputDir, mobiFile)
-
-		if _, err := os.Stat(actualMobiPath); err == nil {
-			fmt.Printf("Found MOBI file in input directory: %s\n", actualMobiPath)
-			// Move it to the expected location
-			if err := os.Rename(actualMobiPath, mobiPath); err != nil {
-				return "", fmt.Errorf("failed to move MOBI file to expected location: %w", err)
-			}
-			fmt.Printf("Moved MOBI file to: %s\n", mobiPath)
-		} else {
-			return "", fmt.Errorf("kindlegen did not create MOBI file %s: %w", mobiPath, err)
-		}
+		return "", fmt.Errorf("kindlegen did not create MOBI file %s: %w", mobiPath, err)
 	}
 
 	return mobiPath, nil

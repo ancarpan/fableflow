@@ -97,9 +97,41 @@ func (h *ConversionHandler) ConvertBook(w http.ResponseWriter, r *http.Request) 
 	tempFilename := fmt.Sprintf("%s.%s", nameWithoutExt, req.OutputFormat)
 	outputPath := filepath.Join(tempDir, tempFilename)
 
-	// Perform conversion
-	fmt.Printf("Starting conversion: %s -> %s\n", book.FilePath, outputPath)
-	err = conversion.ConvertEPUBToAZW3(book.FilePath, outputPath)
+	// Copy source EPUB to temp directory to avoid cross-device issues
+	tempInputPath := filepath.Join(tempDir, originalFilename)
+	fmt.Printf("Copying source file to temp directory: %s -> %s\n", book.FilePath, tempInputPath)
+
+	// Use io.Copy to handle cross-device copies
+	sourceFile, err := os.Open(book.FilePath)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to open source file: %v", err), http.StatusInternalServerError)
+		return
+	}
+	defer sourceFile.Close()
+
+	tempInputFile, err := os.Create(tempInputPath)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to create temp input file: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	if _, err := io.Copy(tempInputFile, sourceFile); err != nil {
+		tempInputFile.Close()
+		os.Remove(tempInputPath) // Clean up on error
+		http.Error(w, fmt.Sprintf("Failed to copy source file: %v", err), http.StatusInternalServerError)
+		return
+	}
+	tempInputFile.Close() // Close before conversion
+
+	// Perform conversion using temp input file
+	fmt.Printf("Starting conversion: %s -> %s\n", tempInputPath, outputPath)
+	err = conversion.ConvertEPUBToAZW3(tempInputPath, outputPath)
+
+	// Clean up temp input file regardless of conversion success/failure
+	if removeErr := os.Remove(tempInputPath); removeErr != nil {
+		fmt.Printf("Warning: failed to remove temp input file %s: %v\n", tempInputPath, removeErr)
+	}
+
 	if err != nil {
 		fmt.Printf("Conversion failed: %v\n", err)
 		http.Error(w, fmt.Sprintf("Conversion failed: %v", err), http.StatusInternalServerError)
