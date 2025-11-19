@@ -34,6 +34,9 @@ COPY --from=caddy /usr/bin/caddy /app/
 COPY frontend/templates /web/templates
 COPY frontend/static /web/static
 
+COPY backend/kindlegen /app/kindlegen
+RUN chmod +x /app/kindlegen/linux/kindlegen
+
 COPY config.yaml.template /app/
 COPY Caddyfile.template /app/
 COPY docker-entrypoint.sh /usr/local/bin/
