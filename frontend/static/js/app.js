@@ -14,8 +14,7 @@ function fableFlowApp() {
             loading: false,
             suggestions: [],
             confidence: 0,
-            searched: false,
-            query: '' // Editable search query
+            searched: false
         },
         
         // App version
@@ -76,6 +75,9 @@ function fableFlowApp() {
         
         // Book deletion
         showDeleteBookConfirm: false,
+        
+        // Book info page
+        selectedBook: null,
 
         // Initialize the application
         init() {
@@ -584,6 +586,27 @@ function fableFlowApp() {
             this.showAboutModal = true;
         },
 
+        // Show book info page
+        async showBookInfo(bookId) {
+            try {
+                this.loading = true;
+                const response = await fetch(`/api/books/${bookId}`);
+                if (response.ok) {
+                    const book = await response.json();
+                    this.selectedBook = book;
+                    this.currentView = 'book-info';
+                    this.breadcrumb = ['Home', book.title || 'Book Info'];
+                } else {
+                    this.showToast('Error loading book data');
+                }
+            } catch (error) {
+                console.error('Error loading book:', error);
+                this.showToast('Error loading book data');
+            } finally {
+                this.loading = false;
+            }
+        },
+
         // Edit book metadata
         async editBook(bookId) {
             try {
@@ -598,13 +621,6 @@ function fableFlowApp() {
                         isbn: book.isbn || '',
                         publisher: book.publisher || ''
                     };
-                    
-                    // Auto-populate search query
-                    if (book.title || book.author) {
-                        this.metadataSearch.query = [book.title || '', book.author || ''].filter(Boolean).join(', ');
-                    } else {
-                        this.metadataSearch.query = '';
-                    }
                     
                     // Reset ISBN lookup data when editing a new book
                     this.isbnLookup = {
@@ -996,21 +1012,12 @@ function fableFlowApp() {
                 fetchedData: null
             };
             
-            // Auto-populate search query
-            if (book.title || book.author) {
-                this.metadataSearch.query = [book.title || '', book.author || ''].filter(Boolean).join(', ');
-            } else {
-                this.metadataSearch.query = '';
-            }
-            
-            // Clear metadata search state when switching books (but keep query)
-            const savedQuery = this.metadataSearch.query;
+            // Clear metadata search state when switching books
             this.metadataSearch = {
                 loading: false,
                 suggestions: [],
                 confidence: 0,
-                searched: false,
-                query: savedQuery
+                searched: false
             };
             
             this.currentView = 'edit';
@@ -1123,38 +1130,19 @@ function fableFlowApp() {
         },
         
         // Metadata search functions
-        async searchMetadata(source = 'openlibrary') {
+        async searchMetadata() {
             this.metadataSearch.loading = true;
             this.metadataSearch.searched = true;
             
-            // Determine search query - use custom query if provided, otherwise use title + author
-            let searchTitle = this.editingBook.title || '';
-            let searchAuthor = this.editingBook.author || '';
-            
-            // If custom query is provided, parse it or use as-is
-            if (this.metadataSearch.query && this.metadataSearch.query.trim()) {
-                // Try to split query into title and author (simple heuristic: if contains comma, split)
-                const queryParts = this.metadataSearch.query.trim().split(',').map(s => s.trim());
-                if (queryParts.length >= 2) {
-                    searchTitle = queryParts[0];
-                    searchAuthor = queryParts.slice(1).join(', ');
-                } else {
-                    // Use entire query as title
-                    searchTitle = this.metadataSearch.query.trim();
-                    searchAuthor = '';
-                }
-            }
-            
             try {
-                const url = `/api/books/search-metadata?source=${source}`;
-                const response = await fetch(url, {
+                const response = await fetch('/api/books/search-metadata', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        title: searchTitle,
-                        author: searchAuthor
+                        title: this.editingBook.title,
+                        author: this.editingBook.author
                     })
                 });
                 
@@ -1173,11 +1161,9 @@ function fableFlowApp() {
                     this.useSuggestion(suggestions[0]);
                     this.showToast('High confidence match found and applied automatically!');
                 } else if (suggestions.length > 0) {
-                    const sourceName = source === 'googlebooks' ? 'Google Books' : 'Open Library';
-                    this.showToast(`Found ${suggestions.length} suggestions from ${sourceName}. Please review and choose the best match.`);
+                    this.showToast(`Found ${suggestions.length} suggestions. Please review and choose the best match.`);
                 } else {
-                    const sourceName = source === 'googlebooks' ? 'Google Books' : 'Open Library';
-                    this.showToast(`No matching books found in ${sourceName}.`);
+                    this.showToast('No matching books found in Open Library.');
                 }
                 
             } catch (error) {

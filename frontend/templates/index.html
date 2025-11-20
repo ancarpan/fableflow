@@ -69,10 +69,11 @@
     <template id="book-card-template">
         <div class="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
             <!-- Book Cover Thumbnail -->
-            <div class="aspect-[3/4] bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+            <div class="aspect-[3/4] bg-gray-100 dark:bg-gray-700 flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity"
+                 @click="showBookInfo(book.id)">
                 <img :src="book.id ? '/api/covers/' + book.id + '?t=' + Date.now() : '/static/default-book.svg'" 
                      :alt="book.title + ' cover'"
-                     class="w-full h-full object-cover"
+                     class="w-full h-full object-cover pointer-events-none"
                      @error="$el.src='/static/default-book.svg'"
                      loading="lazy">
             </div>
@@ -483,6 +484,99 @@
                     <div class="text-4xl mb-2">🎲</div>
                     <p class="text-lg">No books found in your library.</p>
                     <p class="text-sm mt-2">Add some books to get started!</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Book Info Page -->
+        <div x-show="currentView === 'book-info' && selectedBook" class="space-y-6">
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-semibold text-gray-900 dark:text-white">Book Information</h2>
+                    <button @click="goBack()" class="text-blue-600 hover:text-blue-800">← Back</button>
+                </div>
+                
+                <div class="flex flex-col md:flex-row gap-8">
+                    <!-- Book Cover -->
+                    <div class="flex-shrink-0">
+                        <div class="w-64 mx-auto md:mx-0">
+                            <div class="aspect-[3/4] bg-gray-100 dark:bg-gray-700 flex items-center justify-center rounded-lg overflow-hidden shadow-lg">
+                                <img :src="selectedBook.id ? '/api/covers/' + selectedBook.id + '?t=' + Date.now() : '/static/default-book.svg'" 
+                                     :alt="selectedBook.title + ' cover'"
+                                     class="w-full h-full object-cover"
+                                     @error="$el.src='/static/default-book.svg'">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Book Details -->
+                    <div class="flex-1 space-y-4">
+                        <!-- Title -->
+                        <div>
+                            <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2" x-text="selectedBook.title"></h1>
+                            <p class="text-xl text-gray-600 dark:text-gray-300" x-text="'by ' + selectedBook.author"></p>
+                        </div>
+                        
+                        <!-- Format and Size -->
+                        <div class="text-sm text-gray-500 dark:text-gray-400">
+                            <span class="font-medium" x-text="selectedBook.format ? selectedBook.format.toUpperCase() : ''"></span>
+                            <span x-show="selectedBook.format && selectedBook.file_size"> • </span>
+                            <span x-text="selectedBook.file_size ? formatFileSize(selectedBook.file_size) : ''"></span>
+                        </div>
+                        
+                        <!-- ISBN -->
+                        <div x-show="selectedBook.isbn && selectedBook.isbn.trim() !== ''" class="text-sm text-gray-500 dark:text-gray-400">
+                            <span class="font-medium">ISBN:</span> 
+                            <a :href="'https://books.google.com/books?vid=ISBN' + selectedBook.isbn.replace(/[^0-9]/g, '')" 
+                               target="_blank" 
+                               rel="noopener noreferrer"
+                               class="text-blue-600 hover:text-blue-800 hover:underline"
+                               x-text="selectedBook.isbn"></a>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="pt-4 border-t border-gray-200 dark:border-gray-600">
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <!-- Download EPUB -->
+                                <a :href="'/api/download/' + selectedBook.id" 
+                                   class="inline-flex items-center justify-center px-4 py-3 text-sm font-medium text-blue-600 bg-blue-50 dark:bg-blue-900/20 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    Download EPUB
+                                </a>
+                                
+                                <!-- Edit -->
+                                <button @click="editBook(selectedBook.id)" 
+                                        class="inline-flex items-center justify-center px-4 py-3 text-sm font-medium text-orange-600 bg-orange-50 dark:bg-orange-900/20 rounded-md hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                    </svg>
+                                    Edit
+                                </button>
+                                
+                                <!-- Download AZW3 -->
+                                <button @click="convertBook(selectedBook.id, 'azw3')" 
+                                        class="inline-flex items-center justify-center px-4 py-3 text-sm font-medium text-green-600 bg-green-50 dark:bg-green-900/20 rounded-md hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-500"
+                                        :disabled="loading">
+                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                    </svg>
+                                    Download AZW3
+                                </button>
+                                
+                                <!-- Read -->
+                                <a :href="'/read/' + selectedBook.id" 
+                                   target="_blank"
+                                   class="inline-flex items-center justify-center px-4 py-3 text-sm font-medium text-purple-600 bg-purple-50 dark:bg-purple-900/20 rounded-md hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                                    </svg>
+                                    Read
+                                </a>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
