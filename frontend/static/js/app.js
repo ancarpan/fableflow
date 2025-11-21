@@ -14,7 +14,8 @@ function fableFlowApp() {
             loading: false,
             suggestions: [],
             confidence: 0,
-            searched: false
+            searched: false,
+            query: '' // Editable search query
         },
         
         // App version
@@ -331,7 +332,18 @@ function fableFlowApp() {
             this.loading = true;
             this.currentView = 'books-by-author';
             this.currentAuthor = author;
-            this.breadcrumb = ['Home', 'Authors', `Authors (${this.currentLetter})`, author];
+            
+            // Set currentLetter if not already set (e.g., when clicking from book card)
+            if (!this.currentLetter && author && author.length > 0) {
+                this.currentLetter = author.charAt(0).toUpperCase();
+            }
+            
+            // Build breadcrumb - use currentLetter if available, otherwise just show author
+            if (this.currentLetter) {
+                this.breadcrumb = ['Home', 'Authors', `Authors (${this.currentLetter})`, author];
+            } else {
+                this.breadcrumb = ['Home', 'Authors', author];
+            }
             
             try {
                 const response = await fetch(`/api/authors/books?author=${encodeURIComponent(author)}`);
@@ -628,6 +640,18 @@ function fableFlowApp() {
                         loading: false,
                         fetchedData: null
                     };
+                    
+                    // Auto-populate search query for metadata search
+                    if (book.title || book.author) {
+                        this.metadataSearch.query = [book.title || '', book.author || ''].filter(Boolean).join(', ');
+                    } else {
+                        this.metadataSearch.query = '';
+                    }
+                    
+                    // Reset metadata search results
+                    this.metadataSearch.suggestions = [];
+                    this.metadataSearch.searched = false;
+                    this.metadataSearch.confidence = 0;
                     
                     this.currentView = 'edit';
                     this.breadcrumb = ['Home', 'Edit Book'];
@@ -1130,19 +1154,44 @@ function fableFlowApp() {
         },
         
         // Metadata search functions
-        async searchMetadata() {
+        async searchMetadata(source = 'openlibrary') {
+            if (!this.metadataSearch.query || !this.metadataSearch.query.trim()) {
+                this.showToast('Please enter a search query');
+                return;
+            }
+            
             this.metadataSearch.loading = true;
             this.metadataSearch.searched = true;
             
             try {
-                const response = await fetch('/api/books/search-metadata', {
+                // Parse query - try to split into title and author
+                // Simple heuristic: if query contains comma, split by comma
+                // Otherwise, use entire query as title
+                const queryParts = this.metadataSearch.query.split(',').map(s => s.trim());
+                let title = '';
+                let author = '';
+                
+                if (queryParts.length >= 2) {
+                    // Assume format: "title, author" or "author, title"
+                    // Try to detect which is which based on common patterns
+                    title = queryParts[0];
+                    author = queryParts.slice(1).join(', ');
+                } else {
+                    // Use entire query as title
+                    title = this.metadataSearch.query.trim();
+                }
+                
+                // Build API URL with source parameter
+                const apiUrl = `/api/books/search-metadata?source=${encodeURIComponent(source)}`;
+                
+                const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        title: this.editingBook.title,
-                        author: this.editingBook.author
+                        title: title,
+                        author: author
                     })
                 });
                 
@@ -1161,9 +1210,11 @@ function fableFlowApp() {
                     this.useSuggestion(suggestions[0]);
                     this.showToast('High confidence match found and applied automatically!');
                 } else if (suggestions.length > 0) {
-                    this.showToast(`Found ${suggestions.length} suggestions. Please review and choose the best match.`);
+                    const sourceName = source === 'googlebooks' ? 'Google Books' : 'Open Library';
+                    this.showToast(`Found ${suggestions.length} suggestions from ${sourceName}. Please review and choose the best match.`);
                 } else {
-                    this.showToast('No matching books found in Open Library.');
+                    const sourceName = source === 'googlebooks' ? 'Google Books' : 'Open Library';
+                    this.showToast(`No matching books found in ${sourceName}.`);
                 }
                 
             } catch (error) {
