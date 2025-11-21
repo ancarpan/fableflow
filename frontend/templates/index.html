@@ -753,6 +753,36 @@
                                 </form>
                             </div>
                             
+                    <!-- Fetched Data (shown when ISBN lookup has data) -->
+                    <div x-show="isbnLookup.fetchedData" class="w-full lg:w-1/4 flex-shrink-0">
+                        <h4 class="text-md font-semibold text-gray-900 dark:text-white mb-4">Fetched Data</h4>
+                        <div class="space-y-4">
+                            <!-- Fetched Title -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
+                                <div class="px-3 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 rounded-md text-sm text-green-800 min-h-[42px] flex items-center" x-text="isbnLookup.fetchedData?.title || 'Not found'"></div>
+                            </div>
+                            
+                            <!-- Fetched Author -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Author</label>
+                                <div class="px-3 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 rounded-md text-sm text-green-800 min-h-[42px] flex items-center" x-text="isbnLookup.fetchedData?.author || 'Not found'"></div>
+                            </div>
+                            
+                            <!-- Fetched ISBN -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ISBN</label>
+                                <div class="px-3 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 rounded-md text-sm text-green-800 min-h-[42px] flex items-center" x-text="isbnLookup.fetchedData?.isbn || 'Not found'"></div>
+                            </div>
+                            
+                            <!-- Fetched Publisher -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Publisher</label>
+                                <div class="px-3 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 rounded-md text-sm text-green-800 min-h-[42px] flex items-center" x-text="isbnLookup.fetchedData?.publisher || 'Not found'"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <!-- Action Buttons -->
                     <div class="w-full lg:w-auto flex lg:flex-col justify-end gap-4">
                         <button type="button" 
@@ -768,36 +798,6 @@
                         </button>
                     </div>
                 </div>
-                
-                <!-- Fetched Data (shown when ISBN lookup has data) -->
-                <div x-show="isbnLookup.fetchedData" class="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                                <h4 class="text-md font-semibold text-gray-900 dark:text-white mb-4">Fetched Data</h4>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                    <!-- Fetched Title -->
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
-                            <div class="px-3 py-2 bg-white dark:bg-gray-800 border border-green-200 rounded-md text-sm text-green-800 min-h-[42px] flex items-center" x-text="isbnLookup.fetchedData?.title || 'Not found'"></div>
-                                    </div>
-                                    
-                                    <!-- Fetched Author -->
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Author</label>
-                            <div class="px-3 py-2 bg-white dark:bg-gray-800 border border-green-200 rounded-md text-sm text-green-800 min-h-[42px] flex items-center" x-text="isbnLookup.fetchedData?.author || 'Not found'"></div>
-                                    </div>
-                                    
-                                    <!-- Fetched ISBN -->
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ISBN</label>
-                            <div class="px-3 py-2 bg-white dark:bg-gray-800 border border-green-200 rounded-md text-sm text-green-800 min-h-[42px] flex items-center" x-text="isbnLookup.fetchedData?.isbn || 'Not found'"></div>
-                                    </div>
-                                    
-                                    <!-- Fetched Publisher -->
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Publisher</label>
-                            <div class="px-3 py-2 bg-white dark:bg-gray-800 border border-green-200 rounded-md text-sm text-green-800 min-h-[42px] flex items-center" x-text="isbnLookup.fetchedData?.publisher || 'Not found'"></div>
-                                    </div>
-                                </div>
-                            </div>
                 
                 <!-- Row 2: Smart Metadata Search -->
                 <div class="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
