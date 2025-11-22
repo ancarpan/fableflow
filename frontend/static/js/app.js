@@ -3,6 +3,7 @@ function fableFlowApp() {
         // State management
         currentView: 'home',
         loading: false,
+        loadingMessage: 'Caricamento...',
         searchQuery: '',
         searchResults: [],
         recentBooks: [],
@@ -214,6 +215,7 @@ function fableFlowApp() {
                 this.currentView = 'search';
                 this.breadcrumb = ['Home', 'All Books'];
                 this.loading = true;
+                this.loadingMessage = 'Caricamento di tutti i libri...';
                 
                 try {
                     const response = await fetch('/api/search');
@@ -234,6 +236,7 @@ function fableFlowApp() {
             
             console.log('Performing search for:', this.searchQuery);
             this.loading = true;
+            this.loadingMessage = `Ricerca di "${this.searchQuery}"...`;
             this.currentView = 'search';
             this.breadcrumb = ['Home', `Search: "${this.searchQuery}"`];
             
@@ -275,6 +278,7 @@ function fableFlowApp() {
         // Author browsing
         async browseAuthors() {
             this.loading = true;
+            this.loadingMessage = 'Caricamento autori...';
             this.currentView = 'authors';
             this.breadcrumb = ['Home', 'Authors'];
             
@@ -309,6 +313,7 @@ function fableFlowApp() {
 
         async browseAuthorsByLetter(letter) {
             this.loading = true;
+            this.loadingMessage = `Caricamento autori con lettera ${letter}...`;
             this.currentView = 'authors-letter';
             this.currentLetter = letter;
             this.authorSearchQuery = ''; // Reset search when changing letters
@@ -330,6 +335,7 @@ function fableFlowApp() {
 
         async browseBooksByAuthor(author) {
             this.loading = true;
+            this.loadingMessage = `Caricamento libri di ${author}...`;
             this.currentView = 'books-by-author';
             this.currentAuthor = author;
             
@@ -361,6 +367,7 @@ function fableFlowApp() {
         // Title browsing
         async browseTitles() {
             this.loading = true;
+            this.loadingMessage = 'Caricamento titoli...';
             this.currentView = 'titles';
             this.breadcrumb = ['Home', 'Titles'];
             
@@ -396,6 +403,7 @@ function fableFlowApp() {
         // Random books browsing
         async browseRandom() {
             this.loading = true;
+            this.loadingMessage = 'Caricamento libri random...';
             this.currentView = 'random';
             this.breadcrumb = ['Home', 'Random'];
             
@@ -422,6 +430,7 @@ function fableFlowApp() {
 
         async browseTitlesByLetter(letter) {
             this.loading = true;
+            this.loadingMessage = `Caricamento titoli con lettera ${letter}...`;
             this.currentView = 'titles-letter';
             this.currentLetter = letter;
             this.breadcrumb = ['Home', 'Titles', `Titles (${letter})`];
@@ -441,6 +450,7 @@ function fableFlowApp() {
 
         async browseBooksByTitle(title) {
             this.loading = true;
+            this.loadingMessage = `Caricamento libri con titolo "${title}"...`;
             this.currentView = 'books-by-title';
             this.currentTitle = title;
             this.breadcrumb = ['Home', 'Titles', `Titles (${this.currentLetter})`, title];
@@ -461,6 +471,7 @@ function fableFlowApp() {
         // Library management
         async scanLibrary() {
             this.loading = true;
+            this.loadingMessage = 'Scansione libreria in corso...';
             this.showToast('Scanning library...');
             
             try {
@@ -480,6 +491,7 @@ function fableFlowApp() {
         // Conversion functionality
         async convertBook(bookId, format) {
             this.loading = true;
+            this.loadingMessage = `Conversione in ${format.toUpperCase()}...`;
             this.showToast(`Converting to ${format.toUpperCase()}...`);
             
             try {
@@ -602,6 +614,7 @@ function fableFlowApp() {
         async showBookInfo(bookId) {
             try {
                 this.loading = true;
+                this.loadingMessage = 'Caricamento informazioni libro...';
                 const response = await fetch(`/api/books/${bookId}`);
                 if (response.ok) {
                     const book = await response.json();
@@ -623,6 +636,7 @@ function fableFlowApp() {
         async editBook(bookId) {
             try {
                 this.loading = true;
+                this.loadingMessage = 'Caricamento dati libro...';
                 const response = await fetch(`/api/books/${bookId}`);
                 if (response.ok) {
                     const book = await response.json();
@@ -670,6 +684,7 @@ function fableFlowApp() {
         async saveBookMetadata() {
             try {
                 this.loading = true;
+                this.loadingMessage = 'Salvataggio modifiche...';
                 
                 // Check if this is a quarantine book (ID is 0 or null)
                 const isQuarantineBook = !this.editingBook.id || this.editingBook.id === 0;
