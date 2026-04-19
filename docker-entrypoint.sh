@@ -14,21 +14,23 @@ export FF_DATABASE_PATH="${FF_DATABASE_PATH:-/database/ebooks.db}"
 
 # Determine container mode based on environment variable or command
 CONTAINER_MODE="${CONTAINER_MODE:-backend}"
+CONFIG_FILE="${FF_CONFIG_FILE:-/app/config.yaml}"
 
 if [ "$CONTAINER_MODE" = "frontend" ]; then
     echo "Starting FableFlow frontend (Caddy proxy)..."
-    
-    # Create Caddy config
+
     envsubst < /app/Caddyfile.template > /app/Caddyfile
-    
-    # Start Caddy
     exec /app/caddy run --config /app/Caddyfile --adapter caddyfile
 else
     echo "Starting FableFlow backend..."
-    
-    # Create backend config
-    envsubst < /app/config.yaml.template > /app/config.yaml
-    
-    # Start backend
-    exec /app/fableflow-backend -c /app/config.yaml
+
+    if [ -f "$CONFIG_FILE" ] && [ -n "$FF_CONFIG_FILE" ]; then
+        echo "Using custom config: $CONFIG_FILE"
+    else
+        echo "Generating config from template..."
+        envsubst < /app/config.yaml.template > /app/config.yaml
+        CONFIG_FILE="/app/config.yaml"
+    fi
+
+    exec /app/fableflow-backend -c "$CONFIG_FILE"
 fi
